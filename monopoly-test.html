@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V16 Multiplayer Sync + Voice Test</title>
+<title>Monopoly V17 Turn Rules + Trade Test</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -125,7 +125,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 <body>
 <div id="launcher" class="launcher">
   <div class="launch-card">
-    <h2>🎲 Monopoly V16 — Multiplayer sync + voice test</h2>
+    <h2>🎲 Monopoly V17 — Turn rules + trade test</h2>
     <p>AI-ի դեմ կարող ես խաղալ հենց հիմա։ Online mode-ում կարող ես սենյակ ստեղծել, link ուղարկել ընկերներին, մինչև 4 հոգով խաղալ, chat անել ու microphone-ով խոսել։ Խաղը սկսվելուց հետո նոր միացողները spectator են դառնում։</p>
     <label class="info">Քո անունը</label>
     <input id="nameInput" maxlength="20" placeholder="օր.՝ Rob">
@@ -161,7 +161,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 
 <div id="game" class="app hidden">
   <div class="top">
-    <h1>Մոնոպոլիա — V16 multiplayer sync + voice test</h1>
+    <h1>Մոնոպոլիա — V17 turn rules + trade test</h1>
     <div class="top-actions">
       <span id="modePill" class="pill"></span>
       <span id="netPill" class="pill hidden"></span>
@@ -205,7 +205,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 
 <script>
 const spaces=[
-{name:'GO',type:'go',icon:'➡'},
+{name:'GO',type:'go',icon:'⬅'},
 {name:'Mediterranean Ave',type:'property',price:60,color:'#7c4b32',group:'brown',rent:[2,10,30,90,160,250],house:50},
 {name:'Community Chest',type:'chest',icon:'📦'},
 {name:'Baltic Ave',type:'property',price:60,color:'#7c4b32',group:'brown',rent:[4,20,60,180,320,450],house:50},
@@ -484,8 +484,12 @@ function renderProps(){
   const seat=NET.localSeat;if(seat==null||NET.spectator){qs('props').innerHTML='<div class="info">Spectator mode</div>';return}
   const list=spaces.map((s,i)=>({s,i})).filter(x=>G.owner[x.i]===seat);
   qs('props').innerHTML=list.length?list.map(({s,i})=>{
-    const build=canBuild(i,seat)&&localPlayer().cash>=s.house&&!G.animating&&!G.auction&&!G.trade;
-    const sell=canSellBuilding(i,seat),canMort=!G.mortgaged[i]&&G.houses[i]===0&&(!s.group||!groupIds(s.group).some(x=>G.houses[x]>0)),canUn=G.mortgaged[i]&&localPlayer().cash>=Math.ceil(mortgageValue(i)*1.1);
+    const ownTurn=myTurn()&&!G.animating&&!G.auction&&!G.trade&&!G.pending;
+    const debtMode=G.debt?.seat===seat;
+    const build=ownTurn&&!debtMode&&canBuild(i,seat)&&localPlayer().cash>=s.house;
+    const sell=(ownTurn||debtMode)&&canSellBuilding(i,seat);
+    const canMort=(ownTurn||debtMode)&&!G.mortgaged[i]&&G.houses[i]===0&&(!s.group||!groupIds(s.group).some(x=>G.houses[x]>0));
+    const canUn=ownTurn&&!debtMode&&G.mortgaged[i]&&localPlayer().cash>=Math.ceil(mortgageValue(i)*1.1);
     return`<div class="prop"><div class="head"><span><span class="swatch" style="background:${s.color||'#777'}"></span><b>${escapeHtml(s.name)}</b>${G.mortgaged[i]?' 💤':''}</span><span>${G.houses[i]===5?'🏨':(G.houses[i]?'🏠'.repeat(G.houses[i]):'')}</span></div><div class="row">${build?`<button class="btn small" onclick="action('build',{i:${i}})">${G.houses[i]===4?'🏨 Hotel':'🏠 +Տուն'} $${s.house}</button>`:''}${sell?`<button class="btn small" onclick="action('sell',{i:${i}})">Վաճառել +$${Math.floor(s.house/2)}</button>`:''}${canMort?`<button class="btn small" onclick="action('mortgage',{i:${i}})">Mortgage +$${mortgageValue(i)}</button>`:''}${canUn?`<button class="btn small" onclick="action('unmortgage',{i:${i}})">Unmortgage</button>`:''}</div></div>`
   }).join(''):'<div class="info">Դեռ property չունես։</div>'
 }
@@ -568,6 +572,11 @@ function aiMaybeBuild(seat){for(let k=0;k<3;k++){const opts=spaces.map((s,i)=>({
 function handlePropertyAction(seat,type,payload){
   const p=G.players[seat],i=Number(payload.i);
   if(type==='bankrupt')return declareBankrupt(seat);
+  const ownTurn=seat===G.turn&&!G.animating&&!G.auction&&!G.trade&&!G.pending;
+  const debtMode=G.debt?.seat===seat;
+  if(type==='build'&&(!ownTurn||debtMode))return;
+  if(type==='unmortgage'&&(!ownTurn||debtMode))return;
+  if((type==='sell'||type==='mortgage')&&!(ownTurn||debtMode))return;
   if(!Number.isInteger(i)||i<0||i>=40||G.owner[i]!==seat)return;
   const s=spaces[i];
   if(type==='build'&&canBuild(i,seat)&&p.cash>=s.house){p.cash-=s.house;G.houses[i]++;log(`${p.name} ${G.houses[i]===5?'Hotel':'տուն'} կառուցեց ${s.name}-ում`)}
@@ -601,25 +610,41 @@ function renderAuctionModal(){
 function openTrade(){
   if(!myTurn()||NET.spectator)return;const me=NET.localSeat,targets=G.players.map((p,i)=>({p,i})).filter(x=>x.i!==me&&!x.p.bankrupt);
   const options=targets.map(x=>`<option value="${x.i}">${escapeHtml(x.p.name)}</option>`).join('');
-  openModal(`<h2>🤝 Առևտուր</h2><label>Ում հետ</label><select id="tradeTarget" onchange="refreshTradeWant()">${options}</select><label>Դու տալիս ես</label><select id="tradeGive"><option value="">— ոչինչ —</option>${spaces.map((s,i)=>G.owner[i]===me&&G.houses[i]===0&&!G.mortgaged[i]?`<option value="${i}">${escapeHtml(s.name)}</option>`:'').join('')}</select><label>Դու ուզում ես</label><select id="tradeWant"></select><label>Cash՝ դու տալիս ես</label><input id="tradeCash" type="number" min="0" max="${localPlayer().cash}" value="0"><div class="modal-row"><button class="btn main" onclick="submitTradeOffer()">Առաջարկել</button><button class="btn" onclick="closeModal()">Փակել</button></div>`);
+  openModal(`<h2>🤝 Առևտուր</h2>
+    <p class="info">Property + գումար կարող եք փոխանակել երկու ուղղությամբ։ Տուն/Hotel-ը առանձին trade չի արվում․ նախ պետք է շենքը վաճառել բանկին, հետո property-ն առաջարկել։</p>
+    <label>Ում հետ</label><select id="tradeTarget" onchange="refreshTradeWant()">${options}</select>
+    <label>Դու տալիս ես property</label><select id="tradeGive"><option value="">— ոչինչ —</option>${spaces.map((s,i)=>G.owner[i]===me&&G.houses[i]===0&&!G.mortgaged[i]?`<option value="${i}">${escapeHtml(s.name)}</option>`:'').join('')}</select>
+    <label>Դու ուզում ես property</label><select id="tradeWant"></select>
+    <label>Դու տալիս ես գումար</label><input id="tradeCashGive" type="number" min="0" max="${localPlayer().cash}" value="0">
+    <label>Դու ուզում ես դիմացինից գումար</label><input id="tradeCashWant" type="number" min="0" value="0">
+    <div class="modal-row"><button class="btn main" onclick="submitTradeOffer()">Առաջարկել</button><button class="btn" onclick="closeModal()">Փակել</button></div>`);
   refreshTradeWant();
 }
-function refreshTradeWant(){const sel=qs('tradeWant'),target=+qs('tradeTarget')?.value;if(!sel||!Number.isInteger(target))return;sel.innerHTML='<option value="">— ոչինչ —</option>'+spaces.map((s,i)=>G.owner[i]===target&&G.houses[i]===0&&!G.mortgaged[i]?`<option value="${i}">${escapeHtml(s.name)}</option>`:'').join('')}
-function submitTradeOffer(){const to=+qs('tradeTarget').value,give=qs('tradeGive').value===''?null:+qs('tradeGive').value,want=qs('tradeWant').value===''?null:+qs('tradeWant').value,cash=Math.max(0,+qs('tradeCash').value||0);closeModal();action('tradeOffer',{to,give,want,cash})}
+function refreshTradeWant(){const sel=qs('tradeWant'),target=+qs('tradeTarget')?.value;if(!sel||!Number.isInteger(target))return;sel.innerHTML='<option value="">— ոչինչ —</option>'+spaces.map((s,i)=>G.owner[i]===target&&G.houses[i]===0&&!G.mortgaged[i]?`<option value="${i}">${escapeHtml(s.name)}</option>`:'').join('');const cashWant=qs('tradeCashWant');if(cashWant)cashWant.max=G.players[target]?.cash||0}
+function submitTradeOffer(){const to=+qs('tradeTarget').value,give=qs('tradeGive').value===''?null:+qs('tradeGive').value,want=qs('tradeWant').value===''?null:+qs('tradeWant').value,cashGive=Math.max(0,+qs('tradeCashGive').value||0),cashWant=Math.max(0,+qs('tradeCashWant').value||0);closeModal();action('tradeOffer',{to,give,want,cashGive,cashWant})}
 function receiveTradeOffer(from,p){
-  if(G.trade||p.to===from||G.players[p.to]?.bankrupt)return;if(p.cash>G.players[from].cash)return;if(p.give!=null&&(G.owner[p.give]!==from||G.houses[p.give]>0||G.mortgaged[p.give]))return;if(p.want!=null&&(G.owner[p.want]!==p.to||G.houses[p.want]>0||G.mortgaged[p.want]))return;
-  G.trade={from,to:p.to,give:p.give,want:p.want,cash:p.cash};G.status=`${G.players[from].name} trade առաջարկեց ${G.players[p.to].name}-ին։`;broadcastState();
+  if(G.trade||p.to===from||G.players[p.to]?.bankrupt)return;
+  if(p.cashGive>G.players[from].cash||p.cashWant>G.players[p.to].cash)return;
+  if(p.give!=null&&(G.owner[p.give]!==from||G.houses[p.give]>0||G.mortgaged[p.give]))return;
+  if(p.want!=null&&(G.owner[p.want]!==p.to||G.houses[p.want]>0||G.mortgaged[p.want]))return;
+  G.trade={from,to:p.to,give:p.give,want:p.want,cashGive:p.cashGive||0,cashWant:p.cashWant||0};G.status=`${G.players[from].name} trade առաջարկեց ${G.players[p.to].name}-ին։`;broadcastState();
   if(G.players[p.to].isAI)setTimeout(()=>resolveTradeResponse(p.to,aiTradeAccept(G.trade)),650)
 }
-function aiTradeAccept(t){let gets=t.cash,gives=0;if(t.give!=null)gets+=spaces[t.give].price||0;if(t.want!=null)gives+=spaces[t.want].price||0;return gets>=Math.max(80,gives*1.05)}
+function aiTradeAccept(t){let gets=t.cashGive||0,gives=t.cashWant||0;if(t.give!=null)gets+=spaces[t.give].price||0;if(t.want!=null)gives+=spaces[t.want].price||0;return gets>=Math.max(80,gives*1.05)}
 function resolveTradeResponse(seat,accept){
   const t=G.trade;if(!t||seat!==t.to)return;
-  if(accept){if(t.give!=null)G.owner[t.give]=t.to;if(t.want!=null)G.owner[t.want]=t.from;G.players[t.from].cash-=t.cash;G.players[t.to].cash+=t.cash;log(`${G.players[t.to].name} ընդունեց ${G.players[t.from].name}-ի trade-ը։`)}else log(`${G.players[t.to].name} մերժեց trade-ը։`);
+  if(accept){
+    if(t.give!=null)G.owner[t.give]=t.to;
+    if(t.want!=null)G.owner[t.want]=t.from;
+    G.players[t.from].cash-=t.cashGive||0;G.players[t.to].cash+=t.cashGive||0;
+    G.players[t.to].cash-=t.cashWant||0;G.players[t.from].cash+=t.cashWant||0;
+    log(`${G.players[t.to].name} ընդունեց ${G.players[t.from].name}-ի trade-ը։`)
+  }else log(`${G.players[t.to].name} մերժեց trade-ը։`);
   G.trade=null;G.status=`${G.players[G.turn].name}-ի հերթն է։`;broadcastState()
 }
 function renderTradeModal(){
   if(!G.trade)return false;const t=G.trade;
-  if(NET.localSeat===t.to&&!NET.spectator){openModal(`<h2>🤝 Trade առաջարկ</h2><p><b>${escapeHtml(G.players[t.from].name)}</b> տալիս է ${t.give!=null?`<b>${escapeHtml(spaces[t.give].name)}</b>`:'ոչ մի property'} ${t.cash?`և <b>$${t.cash}</b>`:''}${t.want!=null?`, փոխարենը ուզում է <b>${escapeHtml(spaces[t.want].name)}</b>`:''}։</p><div class="modal-row"><button class="btn main" onclick="action('tradeAccept')">Ընդունել</button><button class="btn" onclick="action('tradeDecline')">Մերժել</button></div>`)}else openModal(`<h2>🤝 Trade</h2><p class="info">${escapeHtml(G.players[t.from].name)} ↔ ${escapeHtml(G.players[t.to].name)} · սպասում ենք պատասխանին…</p>`);return true
+  if(NET.localSeat===t.to&&!NET.spectator){openModal(`<h2>🤝 Trade առաջարկ</h2><p><b>${escapeHtml(G.players[t.from].name)}</b> տալիս է ${t.give!=null?`<b>${escapeHtml(spaces[t.give].name)}</b>`:'ոչ մի property'} ${(t.cashGive||0)?`և <b>$${t.cashGive}</b>`:''}${t.want!=null?`, ուզում է <b>${escapeHtml(spaces[t.want].name)}</b>`:''}${(t.cashWant||0)?` և քեզանից <b>$${t.cashWant}</b>`:''}։</p><div class="modal-row"><button class="btn main" onclick="action('tradeAccept')">Ընդունել</button><button class="btn" onclick="action('tradeDecline')">Մերժել</button></div>`)}else openModal(`<h2>🤝 Trade</h2><p class="info">${escapeHtml(G.players[t.from].name)} ↔ ${escapeHtml(G.players[t.to].name)} · սպասում ենք պատասխանին…</p>`);return true
 }
 
 async function hostDrawCard(seat,type){
