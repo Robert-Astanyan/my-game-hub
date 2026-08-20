@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V19 Custom Signaling Test</title>
+<title>Monopoly V22 Connection Fix</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -326,6 +326,7 @@ function getName(){
   localStorage.setItem('monopoly_player_name',n);
   return n
 }
+const DEFAULT_SIGNAL_URL='https://monopoly-peer-server.onrender.com';
 function normalizeSignalUrl(value){
   const raw=(value||'').trim();
   if(!raw)return '';
