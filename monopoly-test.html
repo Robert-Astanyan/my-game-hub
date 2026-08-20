@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V15 Multiplayer Test</title>
+<title>Monopoly V16 Multiplayer Sync + Voice Test</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -125,7 +125,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 <body>
 <div id="launcher" class="launcher">
   <div class="launch-card">
-    <h2>🎲 Monopoly V15 — Multiplayer test</h2>
+    <h2>🎲 Monopoly V16 — Multiplayer sync + voice test</h2>
     <p>AI-ի դեմ կարող ես խաղալ հենց հիմա։ Online mode-ում կարող ես սենյակ ստեղծել, link ուղարկել ընկերներին, մինչև 4 հոգով խաղալ, chat անել ու microphone-ով խոսել։ Խաղը սկսվելուց հետո նոր միացողները spectator են դառնում։</p>
     <label class="info">Քո անունը</label>
     <input id="nameInput" maxlength="20" placeholder="օր.՝ Rob">
@@ -153,7 +153,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
     <div class="net-row">
       <button id="startRoomBtn" class="btn main hidden" onclick="hostStartGame()">▶ Սկսել խաղը</button>
       <button id="voiceLobbyBtn" class="btn small hidden" onclick="toggleVoice()">🎙 Միացնել ձայնը</button>
-      <button id="muteLobbyBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button>
+      <button id="muteLobbyBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button><span id="voiceLobbyState" class="pill hidden">🎙 անջատված</span>
     </div>
     <div class="late-note">Host-ի browser-ը այս test տարբերակում սենյակի «server»-ն է․ host-ը պետք է բաց պահի էջը։</div>
   </div>
@@ -161,12 +161,12 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 
 <div id="game" class="app hidden">
   <div class="top">
-    <h1>Մոնոպոլիա — V15 multiplayer test</h1>
+    <h1>Մոնոպոլիա — V16 multiplayer sync + voice test</h1>
     <div class="top-actions">
       <span id="modePill" class="pill"></span>
       <span id="netPill" class="pill hidden"></span>
       <button id="voiceBtn" class="btn small hidden" onclick="toggleVoice()">🎙 Ձայն</button>
-      <button id="muteBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button>
+      <button id="muteBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button><span id="voiceState" class="pill hidden">🎙 անջատված</span>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙 Մութ մոդ</button>
     </div>
   </div>
@@ -251,7 +251,7 @@ const THEME_KEY='monopoly_v15_theme';
 let G=null;
 const NET={
   mode:'none',peer:null,hostConn:null,conns:new Map(),localPeerId:null,localSeat:null,spectator:false,name:'',
-  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),remoteBusy:false,roomId:null
+  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),voiceSources:new Map(),audioCtx:null,remoteBusy:false,remoteBusyTimer:null,roomId:null
 };
 
 function qs(id){return document.getElementById(id)}
@@ -283,7 +283,31 @@ function toggleTheme(){applyTheme((document.documentElement.getAttribute('data-t
 function facePips(n){const m={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]}[n]||[5];return m.map(p=>`<span class="pip p${p}"></span>`).join('')}
 function dieMarkup(id){return`<div id="${id}Drop" class="die-drop"><div id="${id}" class="die-real">${facePips(1)}</div></div>`}
 async function rollOneDie(id,n,index){const drop=qs(id+'Drop'),die=qs(id);if(!drop||!die)return;const sign=index===0?1:-1;let running=true;const ticker=setInterval(()=>{if(running)die.innerHTML=facePips(1+Math.floor(Math.random()*6))},75);const a=drop.animate([{transform:`translate(${sign*-90}px,-145px) rotate(${sign*-20}deg) scale(.8)`},{transform:`translate(${sign*-45}px,10px) rotate(${sign*15}deg) scale(1.05)`,offset:.45},{transform:`translate(${sign*-14}px,-24px) rotate(${sign*-9}deg)`,offset:.68},{transform:'translate(0,0) rotate(0deg) scale(1)'}],{duration:1050,easing:'cubic-bezier(.18,.72,.22,1)',fill:'forwards'});await a.finished;running=false;clearInterval(ticker);die.innerHTML=facePips(n);a.cancel()}
-async function animateDice(a,b,seat){const overlay=qs('diceOverlay');if(!overlay)return;NET.remoteBusy=true;qs('diceLabel').textContent=`${G.players[seat]?.token||'🎲'} ${G.players[seat]?.name||''}`;qs('rollSum').textContent='';overlay.classList.remove('fade');overlay.classList.add('show');const x=rollOneDie('die1',a,0);await sleep(65);const y=rollOneDie('die2',b,1);await Promise.all([x,y]);qs('rollSum').textContent=`Քայլ՝ ${a+b}`;await sleep(1050);overlay.classList.add('fade');await sleep(300);overlay.classList.remove('show','fade');NET.remoteBusy=false;renderControls()}
+async function animateDice(a,b,seat){
+  const overlay=qs('diceOverlay');
+  if(!overlay)return;
+  NET.remoteBusy=true;
+  clearTimeout(NET.remoteBusyTimer);
+  NET.remoteBusyTimer=setTimeout(()=>{NET.remoteBusy=false;renderControls()},3800);
+  try{
+    const label=qs('diceLabel'),sum=qs('rollSum');
+    if(label)label.textContent=`${G.players[seat]?.token||'🎲'} ${G.players[seat]?.name||''}`;
+    if(sum)sum.textContent='';
+    overlay.classList.remove('fade');overlay.classList.add('show');
+    const x=rollOneDie('die1',a,0);await sleep(65);const y=rollOneDie('die2',b,1);
+    await Promise.allSettled([x,y]);
+    const currentSum=qs('rollSum');if(currentSum)currentSum.textContent=`Քայլ՝ ${a+b}`;
+    await sleep(1150);
+    const currentOverlay=qs('diceOverlay');
+    if(currentOverlay){currentOverlay.classList.add('fade');await sleep(320);currentOverlay.classList.remove('show','fade')}
+  }catch(e){
+    console.warn('dice animation recovered',e);
+  }finally{
+    NET.remoteBusy=false;
+    clearTimeout(NET.remoteBusyTimer);
+    renderControls();
+  }
+}
 
 function showLauncher(){qs('launcher').classList.remove('hidden')}
 function hideLauncher(){qs('launcher').classList.add('hidden')}
@@ -380,9 +404,14 @@ function guestHandleData(d){
     qs('roomStatus').textContent=NET.spectator?'👀 Խաղը արդեն սկսվել է․ դու spectator ես։':'✅ Միացար որպես խաղացող։';
     renderLobby();if(G.started)enterOnlineGame();ensureVoiceMesh();
   }else if(d.type==='state'){
-    G=d.state;NET.roster=d.roster||NET.roster;if(G.started)enterOnlineGame();render();renderLobby();renderNetworkModal();
+    G=d.state;NET.roster=d.roster||NET.roster;
+    if(!G.animating){NET.remoteBusy=false;clearTimeout(NET.remoteBusyTimer)}
+    if(G.started)enterOnlineGame();render();renderLobby();renderNetworkModal();
+    if(myTurn()&&!G.animating)setTimeout(()=>renderControls(),30);
   }else if(d.type==='roster'){NET.roster=d.roster||[];renderLobby();render();ensureVoiceMesh()}
-  else if(d.type==='dice'){animateDice(d.a,d.b,d.seat)}
+  else if(d.type==='dice'){
+    setTimeout(()=>animateDice(d.a,d.b,d.seat),20);
+  }
   else if(d.type==='chat'){if(!G.chat)G.chat=[];G.chat=d.chat||G.chat;renderChat()}
   else if(d.type==='event'){/* state handles event */}
 }
@@ -408,7 +437,7 @@ function hostStartGame(){
 function enterOnlineGame(){
   qs('modePill').textContent=NET.mode==='host'?'🌐 Online · Host':'🌐 Online';
   qs('netPill').classList.remove('hidden');qs('netPill').textContent=NET.spectator?'👀 Spectator':`Player ${NET.localSeat+1}`;
-  qs('voiceBtn').classList.remove('hidden');qs('muteBtn').classList.remove('hidden');showGame();updateVoiceUI()
+  qs('voiceBtn').classList.remove('hidden');qs('muteBtn').classList.remove('hidden');showGame();updateVoiceUI();setTimeout(ensureVoiceMesh,300)
 }
 
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -487,7 +516,7 @@ async function handleAction(seat,type,payload={}){
 }
 async function hostRoll(seat){
   if(G.pending||seat!==G.turn)return;const p=G.players[seat];
-  const a=1+Math.floor(Math.random()*6),b=1+Math.floor(Math.random()*6);G.last=[a,b];G.animating=true;G.status=`${p.name}-ը զառ է գցում…`;broadcastState();broadcastDice(a,b,seat);animateDice(a,b,seat);await sleep(2520);
+  const a=1+Math.floor(Math.random()*6),b=1+Math.floor(Math.random()*6);G.last=[a,b];G.animating=true;G.status=`${p.name}-ը զառ է գցում…`;broadcastState();broadcastDice(a,b,seat);animateDice(a,b,seat);await sleep(3050);
   if(p.jail>0){
     log(`${p.name} Jail-ում գցեց ${a}+${b}`);
     if(a===b){p.jail=0;log(`${p.name} դուրս եկավ Jail-ից։`);await moveSeat(seat,a+b,false);await resolveLanding(seat,a+b,true)}
@@ -525,7 +554,9 @@ function sendJail(seat){const p=G.players[seat];p.pos=10;p.jail=3;G.doubles=0;G.
 function finishTurn(seat,forcedNoDouble=false){
   if(G.over)return;
   if(!forcedNoDouble&&G.last[0]===G.last[1]&&G.players[seat].jail===0&&!G.players[seat].bankrupt){G.turn=seat;G.status=`${G.players[seat].name} doubles գցեց՝ նորից է գցում։`;G.animating=false;broadcastState();if(G.players[seat].isAI)setTimeout(()=>aiTurn(seat),850);return}
-  G.doubles=0;G.turn=nextSeat(seat);G.animating=false;G.status=`${G.players[G.turn].name}-ի հերթն է։`;broadcastState();if(G.players[G.turn].isAI)setTimeout(()=>aiTurn(G.turn),850)
+  G.doubles=0;G.turn=nextSeat(seat);G.animating=false;G.status=`${G.players[G.turn].name}-ի հերթն է։`;
+  if(G.turn===NET.localSeat){NET.remoteBusy=false;clearTimeout(NET.remoteBusyTimer)}
+  broadcastState();if(G.players[G.turn].isAI)setTimeout(()=>aiTurn(G.turn),850)
 }
 async function aiTurn(seat){
   if(!isAuthority()||G.over||G.turn!==seat||G.animating||G.pending||G.auction||G.trade)return;aiMaybeBuild(seat);
@@ -618,43 +649,127 @@ function sendChat(){const inp=qs('chatInput'),t=(inp.value||'').trim();if(!t)ret
 function sendLobbyChat(){const inp=qs('lobbyChatInput'),t=(inp?.value||'').trim();if(!t)return;inp.value='';if(NET.mode==='host')hostChat(NET.name,t);else if(NET.hostConn?.open)NET.hostConn.send({type:'chat',text:t})}
 function hostChat(name,text){if(!G.chat)G.chat=[];G.chat.push({name:cleanName(name),text:String(text).slice(0,180)});if(G.chat.length>100)G.chat.shift();if(NET.mode==='host')NET.conns.forEach(c=>{if(c.open)c.send({type:'chat',chat:G.chat})});renderChat()}
 
+async function ensureAudioReady(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return null;
+  if(!NET.audioCtx)NET.audioCtx=new AC();
+  if(NET.audioCtx.state==='suspended'){
+    try{await NET.audioCtx.resume()}catch(e){console.warn('AudioContext resume failed',e)}
+  }
+  return NET.audioCtx;
+}
 async function toggleVoice(){
   if(!isOnline())return;
   if(!NET.voiceEnabled){
     try{
-      NET.voiceStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});NET.voiceEnabled=true;NET.muted=false;
-      setMyVoiceStatus(true);updateVoiceUI();ensureVoiceMesh()
-    }catch(e){alert('Միկրոֆոնը չբացվեց։ HTTPS/GitHub Pages-ում փորձիր և թույլ տուր microphone permission-ը։')}
+      await ensureAudioReady();
+      NET.voiceStream=await navigator.mediaDevices.getUserMedia({
+        audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},
+        video:false
+      });
+      NET.voiceEnabled=true;NET.muted=false;
+      setMyVoiceStatus(true);updateVoiceUI();
+      ensureVoiceMesh();
+      setTimeout(ensureVoiceMesh,600);
+      setTimeout(ensureVoiceMesh,1600);
+    }catch(e){
+      console.error(e);
+      alert('Միկրոֆոնը չբացվեց։ Ստուգիր browser-ի microphone permission-ը և որ էջը HTTPS է։');
+    }
   }else{
-    NET.voiceCalls.forEach(c=>c.close());NET.voiceCalls.clear();NET.voiceStream?.getTracks().forEach(t=>t.stop());NET.voiceStream=null;NET.voiceEnabled=false;NET.muted=false;setMyVoiceStatus(false);updateVoiceUI()
+    NET.voiceCalls.forEach(c=>{try{c.close()}catch{}});
+    NET.voiceCalls.clear();
+    NET.voiceSources.forEach(s=>{try{s.disconnect()}catch{}});
+    NET.voiceSources.clear();
+    NET.voiceStream?.getTracks().forEach(t=>t.stop());
+    NET.voiceStream=null;NET.voiceEnabled=false;NET.muted=false;
+    setMyVoiceStatus(false);updateVoiceUI();
   }
 }
-function toggleMute(){if(!NET.voiceStream)return;NET.muted=!NET.muted;NET.voiceStream.getAudioTracks().forEach(t=>t.enabled=!NET.muted);updateVoiceUI()}
+function toggleMute(){
+  if(!NET.voiceStream)return;
+  NET.muted=!NET.muted;
+  NET.voiceStream.getAudioTracks().forEach(t=>t.enabled=!NET.muted);
+  updateVoiceUI();
+}
 function updateVoiceUI(){
-  const txt=NET.voiceEnabled?'🎙 Ձայնը միացված է':'🎙 Միացնել ձայնը',mute=NET.muted?'🔊 Unmute':'🔇 Mute';
-  ['voiceBtn','voiceLobbyBtn'].forEach(id=>{if(qs(id))qs(id).textContent=txt});['muteBtn','muteLobbyBtn'].forEach(id=>{if(qs(id))qs(id).textContent=mute})
+  const connected=[...NET.voiceCalls.values()].filter(c=>c&&c.open!==false).length;
+  const txt=NET.voiceEnabled?'🎙 Անջատել ձայնը':'🎙 Միացնել ձայնը';
+  const mute=NET.muted?'🔊 Unmute':'🔇 Mute';
+  const state=NET.voiceEnabled?(connected?`🟢 Voice · ${connected} կապ`:'🟡 Voice · սպասում ենք կապին'):'🎙 անջատված';
+  ['voiceBtn','voiceLobbyBtn'].forEach(id=>{if(qs(id))qs(id).textContent=txt});
+  ['muteBtn','muteLobbyBtn'].forEach(id=>{if(qs(id))qs(id).textContent=mute});
+  ['voiceState','voiceLobbyState'].forEach(id=>{if(qs(id)){qs(id).textContent=state;qs(id).classList.toggle('hidden',!isOnline())}});
 }
 function setMyVoiceStatus(enabled){
-  if(NET.mode==='host'){const r=NET.roster.find(x=>x.peerId===NET.localPeerId);if(r)r.voice=enabled;broadcastRoster()}
-  else if(NET.hostConn?.open)NET.hostConn.send({type:'voiceStatus',enabled})
+  if(NET.mode==='host'){
+    const r=NET.roster.find(x=>x.peerId===NET.localPeerId);if(r)r.voice=enabled;
+    broadcastRoster();
+  }else if(NET.hostConn?.open)NET.hostConn.send({type:'voiceStatus',enabled});
 }
 function handleIncomingCall(call){
   if(call.metadata?.kind!=='voice'){call.close();return}
   if(!NET.voiceEnabled||!NET.voiceStream){call.close();return}
-  call.answer(NET.voiceStream);attachVoiceCall(call)
+  ensureAudioReady();
+  call.answer(NET.voiceStream);
+  attachVoiceCall(call);
 }
 function ensureVoiceMesh(){
   if(!NET.voiceEnabled||!NET.peer||!NET.localPeerId)return;
-  (NET.roster||[]).filter(r=>r.voice&&r.connected!==false&&r.peerId!==NET.localPeerId).forEach(r=>{
+  const peers=(NET.roster||[]).filter(r=>r.voice&&r.connected!==false&&r.peerId!==NET.localPeerId);
+  peers.forEach(r=>{
     if(NET.localPeerId<r.peerId&&!NET.voiceCalls.has(r.peerId)){
-      const call=NET.peer.call(r.peerId,NET.voiceStream,{metadata:{kind:'voice',name:NET.name}});if(call)attachVoiceCall(call)
+      try{
+        const call=NET.peer.call(r.peerId,NET.voiceStream,{metadata:{kind:'voice',name:NET.name}});
+        if(call)attachVoiceCall(call);
+      }catch(e){console.warn('voice call failed',e)}
     }
-  })
+  });
+}
+async function playRemoteStream(peerId,stream){
+  // Primary path: Web Audio. Resuming the context happens from the user's
+  // "Միացնել ձայնը" click, which is much more reliable on iPhone/Safari.
+  try{
+    const ctx=await ensureAudioReady();
+    if(ctx){
+      NET.voiceSources.get(peerId)?.disconnect?.();
+      const source=ctx.createMediaStreamSource(stream);
+      source.connect(ctx.destination);
+      NET.voiceSources.set(peerId,source);
+    }
+  }catch(e){console.warn('WebAudio remote playback failed',e)}
+
+  // Fallback path for browsers that prefer an <audio> element.
+  let a=document.getElementById('audio-'+peerId);
+  if(!a){
+    a=document.createElement('audio');
+    a.id='audio-'+peerId;a.autoplay=true;a.playsInline=true;a.setAttribute('playsinline','');
+    qs('remoteAudio').appendChild(a);
+  }
+  a.srcObject=stream;a.muted=false;a.volume=1;
+  try{await a.play()}catch(e){console.warn('audio.play blocked; WebAudio fallback remains active',e)}
 }
 function attachVoiceCall(call){
-  NET.voiceCalls.set(call.peer,call);call.on('stream',stream=>{let a=document.getElementById('audio-'+call.peer);if(!a){a=document.createElement('audio');a.id='audio-'+call.peer;a.autoplay=true;a.playsInline=true;qs('remoteAudio').appendChild(a)}a.srcObject=stream;a.play().catch(()=>{})});call.on('close',()=>{NET.voiceCalls.delete(call.peer);document.getElementById('audio-'+call.peer)?.remove()});call.on('error',()=>NET.voiceCalls.delete(call.peer))
+  const old=NET.voiceCalls.get(call.peer);
+  if(old&&old!==call){try{old.close()}catch{}}
+  NET.voiceCalls.set(call.peer,call);
+  updateVoiceUI();
+  call.on('stream',stream=>{playRemoteStream(call.peer,stream);updateVoiceUI()});
+  call.on('close',()=>{
+    NET.voiceCalls.delete(call.peer);
+    try{NET.voiceSources.get(call.peer)?.disconnect()}catch{}
+    NET.voiceSources.delete(call.peer);
+    document.getElementById('audio-'+call.peer)?.remove();
+    updateVoiceUI();
+    if(NET.voiceEnabled)setTimeout(ensureVoiceMesh,900);
+  });
+  call.on('error',e=>{
+    console.warn('voice call error',e);
+    NET.voiceCalls.delete(call.peer);
+    updateVoiceUI();
+    if(NET.voiceEnabled)setTimeout(ensureVoiceMesh,1000);
+  });
 }
-
 window.addEventListener('resize',()=>{if(G?.inspect!=null)positionPropertyCard(G.inspect)});
 document.addEventListener('scroll',()=>{if(G?.inspect!=null)positionPropertyCard(G.inspect)},true);
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');
