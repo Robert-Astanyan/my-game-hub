@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V20 Custom Server Ready</title>
+<title>Monopoly V19 Custom Signaling Test</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -125,13 +125,13 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 <body>
 <div id="launcher" class="launcher">
   <div class="launch-card">
-    <h2>🎲 Monopoly V20 — Custom server ready</h2>
+    <h2>🎲 Monopoly V19 — Custom signaling test</h2>
     <p>AI-ի դեմ կարող ես խաղալ հենց հիմա։ Online mode-ում կարող ես սենյակ ստեղծել, link ուղարկել ընկերներին, մինչև 4 հոգով խաղալ, chat անել ու microphone-ով խոսել։ Խաղը սկսվելուց հետո նոր միացողները spectator են դառնում։</p>
     <label class="info">Քո անունը</label>
     <input id="nameInput" maxlength="20" placeholder="օր.՝ Rob">
     <label class="info" style="margin-top:12px;display:block">🌐 Multiplayer server</label>
-    <input id="signalServerInput" placeholder="օր.՝ https://robert-monopoly-peer.onrender.com">
-    <div class="late-note">Մեկ անգամ գրելուց հետո կհիշվի։ Room link-ի մեջ server-ը ավտոմատ կավելանա, որ մյուսներն էլ նույն server-ով միանան։</div>
+    <input id="signalServerInput" readonly value="https://monopoly-peer-server.onrender.com">
+    <div class="late-note">Server-ը ֆիքսված է։ Room link-ը այն ավտոմատ փոխանցում է մյուս խաղացողներին։</div>
     <div id="joinHint" class="late-note"></div>
     <div class="launch-grid">
       <button class="btn main" onclick="startAI()">🤖 Խաղալ AI-ի դեմ</button>
@@ -164,7 +164,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 
 <div id="game" class="app hidden">
   <div class="top">
-    <h1>Մոնոպոլիա — V20 custom server ready</h1>
+    <h1>Մոնոպոլիա — V19 custom signaling test</h1>
     <div class="top-actions">
       <span id="modePill" class="pill"></span>
       <span id="netPill" class="pill hidden"></span><span id="signalPill" class="pill hidden"></span><button id="renameBtn" class="btn small" onclick="changeMyName()">✏️ Անուն</button>
@@ -254,7 +254,7 @@ const THEME_KEY='monopoly_v15_theme';
 let G=null;
 const NET={
   mode:'none',peer:null,hostConn:null,conns:new Map(),localPeerId:null,localSeat:null,spectator:false,name:'',
-  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),voiceSources:new Map(),audioCtx:null,remoteBusy:false,remoteBusyTimer:null,roomId:null,signalUrl:null
+  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),voiceSources:new Map(),audioCtx:null,remoteBusy:false,remoteBusyTimer:null,roomId:null,signalUrl:null,reconnectTimer:null,reconnectTry:0,joining:false
 };
 
 function qs(id){return document.getElementById(id)}
@@ -326,7 +326,6 @@ function getName(){
   localStorage.setItem('monopoly_player_name',n);
   return n
 }
-const DEFAULT_SIGNAL_URL='https://monopoly-peer-server.onrender.com';
 function normalizeSignalUrl(value){
   const raw=(value||'').trim();
   if(!raw)return '';
@@ -341,16 +340,12 @@ function signalFromURL(){
   return normalizeSignalUrl(q||'');
 }
 function selectedSignalUrl(){
-  const fromLink=signalFromURL();
-  if(fromLink)return fromLink;
-  const entered=normalizeSignalUrl(qs('signalServerInput')?.value||'');
-  if(entered)return entered;
-  return normalizeSignalUrl(localStorage.getItem('monopoly_signal_server')||DEFAULT_SIGNAL_URL);
+  return signalFromURL()||DEFAULT_SIGNAL_URL;
 }
 function saveSignalUrl(url){
-  const normalized=normalizeSignalUrl(url);
-  NET.signalUrl=normalized||null;
-  if(normalized)localStorage.setItem('monopoly_signal_server',normalized);
+  const normalized=normalizeSignalUrl(url)||DEFAULT_SIGNAL_URL;
+  NET.signalUrl=normalized;
+  localStorage.setItem('monopoly_signal_server',normalized);
   if(qs('signalServerInput'))qs('signalServerInput').value=normalized;
   renderSignalStatus();
   return normalized
@@ -381,55 +376,139 @@ function startAI(){
   showGame();broadcastState();
 }
 
-function createPeer(){
-  if(typeof Peer==='undefined')throw new Error('PeerJS չբեռնվեց։ Ստուգիր ինտերնետը։');
-  const signal=saveSignalUrl(selectedSignalUrl());
-  let options={debug:2};
-  if(signal){
-    const u=new URL(signal);
-    options={
-      host:u.hostname,
-      port:u.port?Number(u.port):(u.protocol==='https:'?443:80),
-      path:'/peerjs/game',
-      secure:u.protocol==='https:',
-      debug:2
-    };
+async function wakeSignalServer(){
+  const base=selectedSignalUrl();
+  qs('roomStatus').textContent='🛰 Multiplayer server-ը ստուգում ենք…';
+  const started=Date.now();
+  for(let attempt=0;attempt<7;attempt++){
+    try{
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),9000);
+      const r=await fetch(base+'/health?ts='+Date.now(),{cache:'no-store',signal:controller.signal});
+      clearTimeout(timer);
+      if(r.ok)return true;
+    }catch(e){}
+    qs('roomStatus').textContent=`⏳ Server-ը արթնանում է… ${Math.round((Date.now()-started)/1000)}վ`;
+    await sleep(Math.min(1800+attempt*900,6500));
   }
-  const p=new Peer(undefined,options);
+  qs('roomStatus').textContent='❌ Multiplayer server-ին չհաջողվեց միանալ։';
+  return false
+}
+function peerOptions(){
+  const signal=saveSignalUrl(selectedSignalUrl());
+  const u=new URL(signal);
+  return {
+    host:u.hostname,
+    port:u.port?Number(u.port):(u.protocol==='https:'?443:80),
+    path:'/peerjs',
+    secure:u.protocol==='https:',
+    pingInterval:3000,
+    debug:2
+  };
+}
+function installPeerHandlers(p){
   p.on('error',e=>{
-    console.error(e);
-    const where=signal?'սեփական signaling server':'PeerJS cloud';
-    if(qs('roomStatus'))qs('roomStatus').textContent=`❌ ${where} connection error՝ ${e.type}`;
+    console.error('PeerJS error',e);
+    const t=e?.type||'unknown';
+    if(qs('roomStatus')&&!NET.hostConn?.open)qs('roomStatus').textContent=`❌ Connection error՝ ${t}`;
+    if(['network','server-error','socket-error','disconnected'].includes(t))schedulePeerReconnect();
   });
   p.on('disconnected',()=>{
-    if(qs('roomStatus'))qs('roomStatus').textContent='⚠️ Signaling server-ից կապը կտրվեց․ փորձում ենք վերականգնել…';
-    setTimeout(()=>{try{if(!p.destroyed&&p.disconnected)p.reconnect()}catch{}},900);
+    // Signaling loss is not the same as losing an already-established P2P game connection.
+    if(NET.hostConn?.open){
+      qs('roomStatus').textContent='✅ Խաղային կապը կա։ Signaling-ը վերականգնում ենք ֆոնում…';
+    }else if(qs('roomStatus')){
+      qs('roomStatus').textContent='⚠️ Signaling կապը կտրվեց․ վերականգնում ենք…';
+    }
+    schedulePeerReconnect();
   });
   p.on('call',handleIncomingCall);
+}
+function schedulePeerReconnect(){
+  if(!NET.peer||NET.peer.destroyed||NET.reconnectTimer)return;
+  const delays=[700,1200,2200,4000,6500,9000];
+  const delay=delays[Math.min(NET.reconnectTry,delays.length-1)];
+  NET.reconnectTimer=setTimeout(()=>{
+    NET.reconnectTimer=null;
+    try{
+      if(NET.peer&&!NET.peer.destroyed&&NET.peer.disconnected){
+        NET.reconnectTry++;
+        NET.peer.reconnect();
+      }
+    }catch(e){console.warn('reconnect failed',e)}
+    if(NET.peer?.disconnected)schedulePeerReconnect();
+  },delay);
+}
+function createPeer(){
+  if(typeof Peer==='undefined')throw new Error('PeerJS չբեռնվեց։ Ստուգիր ինտերնետը։');
+  const p=new Peer(undefined,peerOptions());
+  installPeerHandlers(p);
   return p;
 }
-function createRoom(){
-  NET.mode='host';NET.name=getName();NET.spectator=false;showLobby();qs('lobbyTitle').textContent='🌐 Քո online սենյակը';qs('roomStatus').textContent='Սենյակը ստեղծվում է…';
+function connectGuestToHost(){
+  if(NET.mode!=='guest'||!NET.peer||NET.peer.disconnected||NET.joining||NET.hostConn?.open)return;
+  const room=NET.roomId;if(!room)return;
+  NET.joining=true;
+  try{
+    const conn=NET.peer.connect(room,{reliable:true,metadata:{name:NET.name}});
+    NET.hostConn=conn;
+    let opened=false;
+    const timeout=setTimeout(()=>{
+      if(!opened){
+        NET.joining=false;
+        try{conn.close()}catch{}
+        if(qs('roomStatus'))qs('roomStatus').textContent='⏳ Host-ին նորից ենք միանում…';
+        setTimeout(connectGuestToHost,1200);
+      }
+    },9000);
+    conn.on('open',()=>{
+      opened=true;clearTimeout(timeout);NET.joining=false;NET.reconnectTry=0;
+      qs('roomStatus').textContent='✅ Host-ին միացված ես։';
+      qs('voiceLobbyBtn').classList.remove('hidden');qs('muteLobbyBtn').classList.remove('hidden');
+      updateVoiceUI();
+    });
+    conn.on('data',guestHandleData);
+    conn.on('close',()=>{
+      clearTimeout(timeout);NET.joining=false;
+      if(G){G.status='Host-ի հետ կապը կտրվեց։';render()}
+      if(qs('roomStatus'))qs('roomStatus').textContent='⚠️ Host-ի հետ կապը կտրվեց․ փորձում ենք նորից միանալ…';
+      if(!G?.over)setTimeout(connectGuestToHost,1400);
+    });
+    conn.on('error',e=>{
+      clearTimeout(timeout);NET.joining=false;
+      console.warn('host data connection error',e);
+      if(qs('roomStatus'))qs('roomStatus').textContent='⚠️ Host connection՝ '+(e?.type||'error');
+      setTimeout(connectGuestToHost,1400);
+    });
+  }catch(e){
+    NET.joining=false;
+    setTimeout(connectGuestToHost,1400);
+  }
+}
+async function createRoom(){
+  NET.mode='host';NET.name=getName();NET.spectator=false;showLobby();qs('lobbyTitle').textContent='🌐 Քո online սենյակը';
+  if(!await wakeSignalServer())return;
+  qs('roomStatus').textContent='Սենյակը ստեղծվում է…';
   try{NET.peer=createPeer()}catch(e){qs('roomStatus').textContent='❌ '+e.message;return}
   NET.peer.on('open',id=>{
-    NET.localPeerId=id;NET.roomId=id;NET.localSeat=0;
+    NET.reconnectTry=0;NET.localPeerId=id;NET.roomId=id;NET.localSeat=0;
     G=freshState([makePlayer(NET.name,0,false,id)],false);
     NET.roster=[{peerId:id,name:NET.name,seat:0,role:'player',voice:false,connected:true}];
     qs('shareLink').value=roomLink(id);qs('shareWrap').classList.remove('hidden');qs('startRoomBtn').classList.remove('hidden');qs('voiceLobbyBtn').classList.remove('hidden');qs('muteLobbyBtn').classList.remove('hidden');
-    qs('roomStatus').textContent=publicBase()?`✅ Սենյակը պատրաստ է ${NET.signalUrl?'սեփական server-ով':'PeerJS cloud-ով'}։ Ուղարկիր link-ը։`:'⚠️ Local file է․ ուրիշ սարքից link-ը չի բացվի մինչև HTTPS/GitHub Pages-ում դնելը։';
-    renderLobby();NET.peer.on('connection',hostAcceptConnection);updateVoiceUI();
+    qs('roomStatus').textContent='✅ Սենյակը պատրաստ է։ Ուղարկիր link-ը։';
+    renderLobby();updateVoiceUI();
   });
+  NET.peer.on('connection',hostAcceptConnection);
 }
-function joinRoom(){
+async function joinRoom(){
   const room=roomFromURL();if(!room)return;
-  NET.mode='guest';NET.name=getName();NET.roomId=room;showLobby();qs('lobbyTitle').textContent='🔗 Միանում ես խաղին';qs('roomStatus').textContent='Host-ին միանում ենք…';
+  NET.mode='guest';NET.name=getName();NET.roomId=room;showLobby();qs('lobbyTitle').textContent='🔗 Միանում ես խաղին';
+  if(!await wakeSignalServer())return;
+  qs('roomStatus').textContent='Host-ին միանում ենք…';
   try{NET.peer=createPeer()}catch(e){qs('roomStatus').textContent='❌ '+e.message;return}
   NET.peer.on('open',id=>{
-    NET.localPeerId=id;NET.hostConn=NET.peer.connect(room,{reliable:true,metadata:{name:NET.name}});
-    NET.hostConn.on('open',()=>{qs('roomStatus').textContent='Միացված է։ Սպասում ենք host-ին…';qs('voiceLobbyBtn').classList.remove('hidden');qs('muteLobbyBtn').classList.remove('hidden');updateVoiceUI()});
-    NET.hostConn.on('data',guestHandleData);
-    NET.hostConn.on('close',()=>{qs('roomStatus').textContent='❌ Host-ը disconnect եղավ։';if(G){G.status='Host-ը disconnect եղավ։';render()}});
-    NET.hostConn.on('error',e=>qs('roomStatus').textContent='❌ '+e.type);
+    NET.reconnectTry=0;NET.localPeerId=id;
+    connectGuestToHost();
   });
 }
 function hostAcceptConnection(conn){
@@ -915,7 +994,7 @@ window.addEventListener('resize',()=>{if(G?.inspect!=null)positionPropertyCard(G
 document.addEventListener('scroll',()=>{if(G?.inspect!=null)positionPropertyCard(G.inspect)},true);
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');
 qs('nameInput').value=localStorage.getItem('monopoly_player_name')||'';
-const initialSignal=signalFromURL()||normalizeSignalUrl(localStorage.getItem('monopoly_signal_server')||DEFAULT_SIGNAL_URL);
+const initialSignal=signalFromURL()||normalizeSignalUrl(localStorage.getItem('monopoly_signal_server')||'');
 if(initialSignal){qs('signalServerInput').value=initialSignal;if(signalFromURL())qs('signalServerInput').readOnly=true}
 const initialRoom=roomFromURL();
 if(initialRoom){qs('joinBtn').classList.remove('hidden');qs('createBtn').classList.add('hidden');qs('joinHint').textContent='🔗 Link-ից եկել ես․ անունդ գրիր ու սեղմիր «Միանալ link-ով»։ Server-ը link-ից արդեն ընտրված է։'}
