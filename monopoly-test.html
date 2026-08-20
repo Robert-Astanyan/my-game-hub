@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V17 Turn Rules + Trade Test</title>
+<title>Monopoly V20 Custom Server Ready</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -125,10 +125,13 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 <body>
 <div id="launcher" class="launcher">
   <div class="launch-card">
-    <h2>🎲 Monopoly V17 — Turn rules + trade test</h2>
+    <h2>🎲 Monopoly V20 — Custom server ready</h2>
     <p>AI-ի դեմ կարող ես խաղալ հենց հիմա։ Online mode-ում կարող ես սենյակ ստեղծել, link ուղարկել ընկերներին, մինչև 4 հոգով խաղալ, chat անել ու microphone-ով խոսել։ Խաղը սկսվելուց հետո նոր միացողները spectator են դառնում։</p>
     <label class="info">Քո անունը</label>
     <input id="nameInput" maxlength="20" placeholder="օր.՝ Rob">
+    <label class="info" style="margin-top:12px;display:block">🌐 Multiplayer server</label>
+    <input id="signalServerInput" placeholder="օր.՝ https://robert-monopoly-peer.onrender.com">
+    <div class="late-note">Մեկ անգամ գրելուց հետո կհիշվի։ Room link-ի մեջ server-ը ավտոմատ կավելանա, որ մյուսներն էլ նույն server-ով միանան։</div>
     <div id="joinHint" class="late-note"></div>
     <div class="launch-grid">
       <button class="btn main" onclick="startAI()">🤖 Խաղալ AI-ի դեմ</button>
@@ -152,7 +155,7 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
     </div>
     <div class="net-row">
       <button id="startRoomBtn" class="btn main hidden" onclick="hostStartGame()">▶ Սկսել խաղը</button>
-      <button id="voiceLobbyBtn" class="btn small hidden" onclick="toggleVoice()">🎙 Միացնել ձայնը</button>
+      <button class="btn small" onclick="changeMyName()">✏️ Անունը փոխել</button><button id="voiceLobbyBtn" class="btn small hidden" onclick="toggleVoice()">🎙 Միացնել ձայնը</button>
       <button id="muteLobbyBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button><span id="voiceLobbyState" class="pill hidden">🎙 անջատված</span>
     </div>
     <div class="late-note">Host-ի browser-ը այս test տարբերակում սենյակի «server»-ն է․ host-ը պետք է բաց պահի էջը։</div>
@@ -161,10 +164,10 @@ html[data-theme="light"] .btn{background:#eef4ef;border-color:#c2cfc4;color:#1f2
 
 <div id="game" class="app hidden">
   <div class="top">
-    <h1>Մոնոպոլիա — V17 turn rules + trade test</h1>
+    <h1>Մոնոպոլիա — V20 custom server ready</h1>
     <div class="top-actions">
       <span id="modePill" class="pill"></span>
-      <span id="netPill" class="pill hidden"></span>
+      <span id="netPill" class="pill hidden"></span><span id="signalPill" class="pill hidden"></span><button id="renameBtn" class="btn small" onclick="changeMyName()">✏️ Անուն</button>
       <button id="voiceBtn" class="btn small hidden" onclick="toggleVoice()">🎙 Ձայն</button>
       <button id="muteBtn" class="btn small hidden" onclick="toggleMute()">🔇 Mute</button><span id="voiceState" class="pill hidden">🎙 անջատված</span>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙 Մութ մոդ</button>
@@ -251,12 +254,12 @@ const THEME_KEY='monopoly_v15_theme';
 let G=null;
 const NET={
   mode:'none',peer:null,hostConn:null,conns:new Map(),localPeerId:null,localSeat:null,spectator:false,name:'',
-  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),voiceSources:new Map(),audioCtx:null,remoteBusy:false,remoteBusyTimer:null,roomId:null
+  roster:[],voiceStream:null,voiceEnabled:false,muted:false,voiceCalls:new Map(),voiceSources:new Map(),audioCtx:null,remoteBusy:false,remoteBusyTimer:null,roomId:null,signalUrl:null
 };
 
 function qs(id){return document.getElementById(id)}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-function cleanName(s){return (s||'Player').replace(/[<>&"']/g,'').trim().slice(0,20)||'Player'}
+function cleanName(s){return (s||'').replace(/[<>&"']/g,'').trim().slice(0,20)}
 function isAuthority(){return NET.mode==='ai'||NET.mode==='host'}
 function isOnline(){return NET.mode==='host'||NET.mode==='guest'}
 function localPlayer(){return G&&NET.localSeat!=null?G.players[NET.localSeat]:null}
@@ -314,10 +317,61 @@ function hideLauncher(){qs('launcher').classList.add('hidden')}
 function showLobby(){qs('lobby').classList.remove('hidden');hideLauncher()}
 function hideLobby(){qs('lobby').classList.add('hidden')}
 function showGame(){qs('game').classList.remove('hidden');hideLauncher();hideLobby();render()}
-function getName(){const n=cleanName(qs('nameInput').value);qs('nameInput').value=n;return n}
+function getName(){
+  let n=cleanName(qs('nameInput').value);
+  if(!n){
+    n='Խաղացող';
+    qs('nameInput').value=n;
+  }
+  localStorage.setItem('monopoly_player_name',n);
+  return n
+}
+const DEFAULT_SIGNAL_URL='https://monopoly-peer-server.onrender.com';
+function normalizeSignalUrl(value){
+  const raw=(value||'').trim();
+  if(!raw)return '';
+  try{
+    const u=new URL(/^https?:\/\//i.test(raw)?raw:'https://'+raw);
+    if(!/^https?:$/.test(u.protocol))return '';
+    return u.origin;
+  }catch{return ''}
+}
+function signalFromURL(){
+  const q=new URLSearchParams(location.search).get('server');
+  return normalizeSignalUrl(q||'');
+}
+function selectedSignalUrl(){
+  const fromLink=signalFromURL();
+  if(fromLink)return fromLink;
+  const entered=normalizeSignalUrl(qs('signalServerInput')?.value||'');
+  if(entered)return entered;
+  return normalizeSignalUrl(localStorage.getItem('monopoly_signal_server')||DEFAULT_SIGNAL_URL);
+}
+function saveSignalUrl(url){
+  const normalized=normalizeSignalUrl(url);
+  NET.signalUrl=normalized||null;
+  if(normalized)localStorage.setItem('monopoly_signal_server',normalized);
+  if(qs('signalServerInput'))qs('signalServerInput').value=normalized;
+  renderSignalStatus();
+  return normalized
+}
+function renderSignalStatus(){
+  const pill=qs('signalPill');
+  if(!pill)return;
+  if(!isOnline()){pill.classList.add('hidden');return}
+  pill.classList.remove('hidden');
+  pill.textContent=NET.signalUrl?'🛰 Սեփական server':'☁️ PeerJS cloud';
+}
+
 function roomFromURL(){return new URLSearchParams(location.search).get('room')}
 function publicBase(){return location.origin==='null'||location.protocol==='file:'?null:(location.origin+location.pathname)}
-function roomLink(id){const base=publicBase();return base?`${base}?room=${encodeURIComponent(id)}`:`${location.href.split('?')[0]}?room=${encodeURIComponent(id)}`}
+function roomLink(id){
+  const base=publicBase()||location.href.split('?')[0];
+  const u=new URL(base,location.href);
+  u.searchParams.set('room',id);
+  if(NET.signalUrl)u.searchParams.set('server',NET.signalUrl);
+  return u.toString()
+}
 async function copyShareLink(){try{await navigator.clipboard.writeText(qs('shareLink').value);qs('roomStatus').textContent='✅ Link-ը copy եղավ։'}catch{qs('shareLink').select();document.execCommand('copy')}}
 
 function startAI(){
@@ -329,8 +383,28 @@ function startAI(){
 
 function createPeer(){
   if(typeof Peer==='undefined')throw new Error('PeerJS չբեռնվեց։ Ստուգիր ինտերնետը։');
-  const p=new Peer(undefined,{debug:1});
-  p.on('error',e=>{console.error(e);if(qs('roomStatus'))qs('roomStatus').textContent='❌ Connection error՝ '+e.type});
+  const signal=saveSignalUrl(selectedSignalUrl());
+  let options={debug:2};
+  if(signal){
+    const u=new URL(signal);
+    options={
+      host:u.hostname,
+      port:u.port?Number(u.port):(u.protocol==='https:'?443:80),
+      path:'/peerjs/game',
+      secure:u.protocol==='https:',
+      debug:2
+    };
+  }
+  const p=new Peer(undefined,options);
+  p.on('error',e=>{
+    console.error(e);
+    const where=signal?'սեփական signaling server':'PeerJS cloud';
+    if(qs('roomStatus'))qs('roomStatus').textContent=`❌ ${where} connection error՝ ${e.type}`;
+  });
+  p.on('disconnected',()=>{
+    if(qs('roomStatus'))qs('roomStatus').textContent='⚠️ Signaling server-ից կապը կտրվեց․ փորձում ենք վերականգնել…';
+    setTimeout(()=>{try{if(!p.destroyed&&p.disconnected)p.reconnect()}catch{}},900);
+  });
   p.on('call',handleIncomingCall);
   return p;
 }
@@ -342,7 +416,7 @@ function createRoom(){
     G=freshState([makePlayer(NET.name,0,false,id)],false);
     NET.roster=[{peerId:id,name:NET.name,seat:0,role:'player',voice:false,connected:true}];
     qs('shareLink').value=roomLink(id);qs('shareWrap').classList.remove('hidden');qs('startRoomBtn').classList.remove('hidden');qs('voiceLobbyBtn').classList.remove('hidden');qs('muteLobbyBtn').classList.remove('hidden');
-    qs('roomStatus').textContent=publicBase()?'✅ Սենյակը պատրաստ է։ Ուղարկիր link-ը։':'⚠️ Local file է․ ուրիշ սարքից link-ը չի բացվի մինչև HTTPS/GitHub Pages-ում դնելը։';
+    qs('roomStatus').textContent=publicBase()?`✅ Սենյակը պատրաստ է ${NET.signalUrl?'սեփական server-ով':'PeerJS cloud-ով'}։ Ուղարկիր link-ը։`:'⚠️ Local file է․ ուրիշ սարքից link-ը չի բացվի մինչև HTTPS/GitHub Pages-ում դնելը։';
     renderLobby();NET.peer.on('connection',hostAcceptConnection);updateVoiceUI();
   });
 }
@@ -437,7 +511,7 @@ function hostStartGame(){
 function enterOnlineGame(){
   qs('modePill').textContent=NET.mode==='host'?'🌐 Online · Host':'🌐 Online';
   qs('netPill').classList.remove('hidden');qs('netPill').textContent=NET.spectator?'👀 Spectator':`Player ${NET.localSeat+1}`;
-  qs('voiceBtn').classList.remove('hidden');qs('muteBtn').classList.remove('hidden');showGame();updateVoiceUI();setTimeout(ensureVoiceMesh,300)
+  qs('voiceBtn').classList.remove('hidden');qs('muteBtn').classList.remove('hidden');showGame();updateVoiceUI();renderSignalStatus();setTimeout(ensureVoiceMesh,300)
 }
 
 function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -504,6 +578,47 @@ function positionPropertyCard(i){const card=qs('propertyCard'),tile=document.que
 function closePropertyCard(){const c=qs('propertyCard');c.className='property-pop hidden';c.innerHTML='';if(G)G.inspect=null}
 document.addEventListener('pointerdown',e=>{if(qs('propertyCard').classList.contains('hidden'))return;if(e.target.closest('#propertyCard'))return;if(e.target.closest('.space')){closePropertyCard();return}closePropertyCard()},true)
 
+function changeMyName(){
+  if(NET.spectator&&NET.localSeat==null){
+    openModal(`<h2>✏️ Անունը փոխել</h2><label>Քո անունը</label><input id="renameInput" maxlength="20" value="${escapeHtml(NET.name||'')}" onkeydown="if(event.key===\'Enter\')saveMyName()"><div class="modal-row"><button class="btn main" onclick="saveMyName()">Պահել</button><button class="btn" onclick="closeModal()">Չեղարկել</button></div>`);
+    return;
+  }
+  const current=NET.localSeat!=null&&G?.players?.[NET.localSeat]?G.players[NET.localSeat].name:NET.name;
+  openModal(`<h2>✏️ Անունը փոխել</h2><label>Քո անունը</label><input id="renameInput" maxlength="20" value="${escapeHtml(current||'')}" onkeydown="if(event.key===\'Enter\')saveMyName()"><div class="modal-row"><button class="btn main" onclick="saveMyName()">Պահել</button><button class="btn" onclick="closeModal()">Չեղարկել</button></div>`);
+  setTimeout(()=>qs('renameInput')?.focus(),50);
+}
+function saveMyName(){
+  const name=cleanName(qs('renameInput')?.value);
+  if(!name)return;
+  localStorage.setItem('monopoly_player_name',name);
+  NET.name=name;
+  qs('nameInput').value=name;
+  closeModal();
+  if(NET.spectator&&NET.localSeat==null){
+    // Spectator name is kept locally for chat in this test build.
+    renderLobby();
+    return;
+  }
+  action('rename',{name});
+}
+function authorityRename(seat,name){
+  const n=cleanName(name);
+  if(!n||!G?.players?.[seat])return;
+  const old=G.players[seat].name;
+  G.players[seat].name=n;
+  if(NET.mode==='host'){
+    const r=NET.roster.find(x=>x.seat===seat&&x.role==='player');
+    if(r)r.name=n;
+    const conn=[...NET.conns.values()].find(c=>c._seat===seat);
+    if(conn)conn._name=n;
+  }else if(NET.mode==='ai'&&seat===NET.localSeat){
+    NET.name=n;
+  }
+  log(`${old} անունը փոխեց՝ ${n}`);
+  broadcastRoster();
+  broadcastState();
+}
+
 function action(type,payload={}){if(NET.spectator)return;if(isAuthority())handleAction(NET.localSeat,type,payload);else if(NET.hostConn?.open)NET.hostConn.send({type:'action',action:type,payload})}
 async function handleAction(seat,type,payload={}){
   if(!G||G.over||seat==null)return;
@@ -511,6 +626,7 @@ async function handleAction(seat,type,payload={}){
   if(type==='auctionBid')return submitAuctionBid(seat,payload.bid);
   if(type==='tradeOffer')return receiveTradeOffer(seat,payload);
   if(type==='tradeAccept'||type==='tradeDecline')return resolveTradeResponse(seat,type==='tradeAccept');
+  if(type==='rename')return authorityRename(seat,payload.name);
   if(seat!==G.turn||G.animating||G.auction||G.trade||G.debt&&G.debt.seat!==seat)return;
   if(type==='roll')return hostRoll(seat);
   if(type==='buy')return hostBuy(seat);
@@ -798,8 +914,11 @@ function attachVoiceCall(call){
 window.addEventListener('resize',()=>{if(G?.inspect!=null)positionPropertyCard(G.inspect)});
 document.addEventListener('scroll',()=>{if(G?.inspect!=null)positionPropertyCard(G.inspect)},true);
 applyTheme(localStorage.getItem(THEME_KEY)||'dark');
+qs('nameInput').value=localStorage.getItem('monopoly_player_name')||'';
+const initialSignal=signalFromURL()||normalizeSignalUrl(localStorage.getItem('monopoly_signal_server')||DEFAULT_SIGNAL_URL);
+if(initialSignal){qs('signalServerInput').value=initialSignal;if(signalFromURL())qs('signalServerInput').readOnly=true}
 const initialRoom=roomFromURL();
-if(initialRoom){qs('joinBtn').classList.remove('hidden');qs('createBtn').classList.add('hidden');qs('joinHint').textContent='🔗 Link-ից եկել ես․ անունդ գրիր ու սեղմիր «Միանալ link-ով»։'}
+if(initialRoom){qs('joinBtn').classList.remove('hidden');qs('createBtn').classList.add('hidden');qs('joinHint').textContent='🔗 Link-ից եկել ես․ անունդ գրիր ու սեղմիր «Միանալ link-ով»։ Server-ը link-ից արդեն ընտրված է։'}
 </script>
 </body>
 </html>
