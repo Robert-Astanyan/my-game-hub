@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V22 Connection Fix</title>
+<title>Monopoly V23 CORS Wake Fix</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -381,19 +381,31 @@ async function wakeSignalServer(){
   const base=selectedSignalUrl();
   qs('roomStatus').textContent='🛰 Multiplayer server-ը ստուգում ենք…';
   const started=Date.now();
+
   for(let attempt=0;attempt<7;attempt++){
     try{
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),9000);
-      const r=await fetch(base+'/health?ts='+Date.now(),{cache:'no-store',signal:controller.signal});
+      const timer=setTimeout(()=>controller.abort(),12000);
+
+      // Սա պարզապես Render-ը "արթնացնելու" request է։
+      // Response-ը կարդալ պետք չէ, դրա համար no-cors mode-ը
+      // ազատում է մեզ Access-Control-Allow-Origin պահանջից։
+      await fetch(base+'/health?ts='+Date.now(),{
+        cache:'no-store',
+        mode:'no-cors',
+        signal:controller.signal
+      });
+
       clearTimeout(timer);
-      if(r.ok)return true;
-    }catch(e){}
-    qs('roomStatus').textContent=`⏳ Server-ը արթնանում է… ${Math.round((Date.now()-started)/1000)}վ`;
-    await sleep(Math.min(1800+attempt*900,6500));
+      return true;
+    }catch(e){
+      qs('roomStatus').textContent=`⏳ Server-ը արթնանում է… ${Math.round((Date.now()-started)/1000)}վ`;
+      await sleep(Math.min(1800+attempt*900,6500));
+    }
   }
+
   qs('roomStatus').textContent='❌ Multiplayer server-ին չհաջողվեց միանալ։';
-  return false
+  return false;
 }
 function peerOptions(){
   const signal=saveSignalUrl(selectedSignalUrl());
