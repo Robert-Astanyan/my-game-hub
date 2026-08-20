@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="hy">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Իմ խաղադարանը</title>
+<style>
+:root{
+  --bg:#090d10; --panel:#11181d; --panel2:#172129; --line:#2d3a42;
+  --text:#edf2f4; --muted:#91a0a8; --green:#9bd18a; --green2:#527855;
+  --amber:#d6b36a; --red:#d97770; --blue:#77a6c2; --violet:#b99ae0;
+  --paper:#e9dfc3; --ink:#27241f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+body{
+  background:
+    radial-gradient(circle at 15% 5%,rgba(83,116,85,.14),transparent 28%),
+    radial-gradient(circle at 85% 8%,rgba(92,70,125,.12),transparent 24%),
+    linear-gradient(#0a0f12,#080b0d);
+}
+body:before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.04;z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")
+}
+.hidden{display:none!important}
+.primary,.secondary,.danger,.ghost{
+  border-radius:10px;padding:10px 14px;font-weight:800;border:1px solid transparent
+}
+.primary{background:var(--green);color:#071008;border-color:#a7df97}
+.secondary{background:#121a20;color:var(--text);border-color:#36454e}
+.danger{background:#2a1617;color:#efb6b1;border-color:#71403e}
+.ghost{background:transparent;color:#c7d0d4;border-color:#303d44}
+.small{font-size:12px;color:var(--muted);line-height:1.45}
+.badge{display:inline-flex;align-items:center;gap:5px;border:1px solid #34424a;border-radius:999px;padding:5px 8px;font-size:11px;color:#aebbc1;background:#0c1216}
+
+/* HUB */
+#hub{min-height:100vh;padding:24px}
+.hero{
+  width:min(1180px,100%);margin:0 auto 22px;padding:30px 30px 24px;
+  background:linear-gradient(145deg,rgba(22,31,34,.95),rgba(11,16,18,.97));
+  border:1px solid #344147;border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.42);position:relative;overflow:hidden
+}
+.hero:after{
+  content:"";position:absolute;width:360px;height:360px;border-radius:50%;right:-130px;top:-190px;
+  border:1px solid rgba(155,209,138,.16);box-shadow:0 0 0 55px rgba(155,209,138,.02),0 0 0 110px rgba(155,209,138,.012)
+}
+.hero-kicker{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);font-weight:900}
+.hero h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(38px,6vw,64px);letter-spacing:-.04em;margin:7px 0 8px}
+.hero p{max-width:780px;color:#c6d0d4;line-height:1.65;margin:0}
+.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.games-grid{
+  width:min(1180px,100%);margin:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:12px
+}
+.game-card{
+  min-height:210px;text-align:left;padding:15px;border-radius:16px;border:1px solid #2f3b42;
+  background:linear-gradient(145deg,#131b20,#0d1317);color:var(--text);position:relative;overflow:hidden;
+  box-shadow:0 16px 35px rgba(0,0,0,.22);transition:.18s transform,.18s border-color
+}
+.game-card:hover{transform:translateY(-3px);border-color:#5a7061}
+.game-card .icon{font-size:42px;margin-bottom:12px}
+.game-card h3{margin:0 0 7px;font-size:17px}
+.game-card p{margin:0;color:#96a5ad;font-size:12px;line-height:1.5}
+.game-card .type{position:absolute;left:14px;bottom:13px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#76858c}
+.game-card .done{position:absolute;right:11px;top:11px;background:#1a2a1d;border:1px solid #46644a;color:#aee19e;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:900}
+.game-card.featured{grid-column:span 2;background:linear-gradient(145deg,#1a211c,#101614);border-color:#3d5040}
+.game-card.featured h3{font-size:20px}
+.game-card.featured:after{content:"";position:absolute;width:150px;height:150px;border-radius:50%;right:-50px;bottom:-60px;background:rgba(155,209,138,.05)}
+footer{width:min(1180px,100%);margin:22px auto 0;color:#65737a;font-size:11px;text-align:center;padding-bottom:20px}
+
+/* GAME SHELL */
+#gameShell{min-height:100vh}
+.gamebar{
+  position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:9px;padding:9px 11px;
+  background:rgba(7,10,12,.94);backdrop-filter:blur(12px);border-bottom:1px solid #273137
+}
+.gamebar .gtitle{font-weight:900;flex:1}
+.gamebar .gmeta{font-size:11px;color:#84939b}
+.game-page{display:none;min-height:calc(100vh - 52px);padding:20px}
+.game-page.active{display:block}
+.game-wrap{width:min(1120px,100%);margin:auto}
+.game-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+.game-head h2{margin:0;font-family:Georgia,serif;font-weight:500;font-size:31px}
+.game-head p{margin:5px 0 0;color:#94a2a9;font-size:13px}
+.panel{background:#10171b;border:1px solid #2d3940;border-radius:14px;padding:14px}
+.logbox{background:#080d10;border:1px solid #273239;border-radius:10px;padding:9px;height:150px;overflow:auto;font-size:12px;line-height:1.45}
+.logbox p{margin:0 0 7px}
+.statrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.stat{background:#0b1114;border:1px solid #2a373d;border-radius:10px;padding:8px 10px;min-width:110px}
+.stat b{display:block;font-size:17px}.stat span{font-size:10px;color:#819097;text-transform:uppercase;letter-spacing:.07em}
+
+/* MONOPOLY */
+.mono-layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:14px}
+.mono-board{
+  display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(6,1fr);
+  aspect-ratio:1/1;background:#d8e2cd;border:8px solid #222;color:#171a16;position:relative;
+  box-shadow:0 20px 55px rgba(0,0,0,.38)
+}
+.mono-cell{border:1px solid #2e322c;background:#eff2e8;position:relative;padding:4px;min-width:0;overflow:hidden;font-size:9px}
+.mono-cell .strip{height:13px;margin:-4px -4px 4px;border-bottom:1px solid #333}
+.mono-cell .price{position:absolute;bottom:3px;left:4px;font-weight:800}
+.mono-cell .houses{position:absolute;right:3px;top:17px;font-size:10px}
+.mono-cell.corner{background:#e6eadf;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;text-align:center}
+.mono-center{
+  grid-column:2/6;grid-row:2/6;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:linear-gradient(145deg,#dfe9d4,#cbd9c3);border:1px solid #6e7d66;position:relative
+}
+.mono-center h3{font-family:Georgia,serif;font-size:28px;letter-spacing:.08em;margin:0;color:#263025}
+.mono-center .dice{font-size:42px;margin:8px}
+.token-p,.token-a{position:absolute;z-index:5;font-size:18px;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.token-p{left:3px;bottom:18px}.token-a{right:3px;bottom:18px}
+.mono-side .actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}
+.mono-side .actions button:first-child{grid-column:1/-1}
+.owner-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.owner-player{background:#2f7dd1}.owner-ai{background:#c94d4d}
+
+/* UNO */
+.uno-table{
+  min-height:620px;border-radius:24px;padding:18px;background:
+  radial-gradient(circle at center,#315844,#1a3427 55%,#11251a);border:8px solid #2b1d14;
+  box-shadow:inset 0 0 70px rgba(0,0,0,.35),0 20px 60px rgba(0,0,0,.35);position:relative
+}
+.uno-top,.uno-bottom{display:flex;justify-content:center;gap:7px;min-height:120px;align-items:center;flex-wrap:wrap}
+.uno-middle{display:flex;justify-content:center;align-items:center;gap:24px;min-height:260px}
+.card{
+  width:74px;height:108px;border-radius:11px;border:5px solid #f2efe4;color:white;display:grid;place-items:center;
+  font-size:31px;font-weight:900;box-shadow:0 7px 16px rgba(0,0,0,.3);position:relative
+}
+.card:before{content:"";position:absolute;inset:13px 8px;border:2px solid rgba(255,255,255,.65);border-radius:50%;transform:rotate(-20deg)}
+.card span{position:relative;z-index:2;text-shadow:0 2px 3px rgba(0,0,0,.35)}
+.card.red{background:#d84d49}.card.blue{background:#397bc1}.card.green{background:#44a45a}.card.yellow{background:#d4ad32;color:#212121}
+.card.back{background:linear-gradient(135deg,#25272a,#121416);border-color:#e6e0d1;color:#efdf8b}
+.card.playable{cursor:pointer;transform:translateY(-5px);outline:2px solid #fff3}
+.card.playable:hover{transform:translateY(-11px)}
+.uno-count{font-size:12px;color:#dce8de;text-align:center;margin-top:4px}
+
+/* ESCAPE */
+.escape-room{
+  position:relative;min-height:620px;overflow:hidden;border-radius:16px;border:1px solid #35413f;
+  background:linear-gradient(180deg,#1a2122 0 62%,#101416 62% 100%)
+}
+.escape-room:after{content:"";position:absolute;left:0;right:0;top:62%;height:2px;background:#303937;box-shadow:0 15px 50px #000}
+.eroom-title{position:absolute;z-index:5;left:18px;top:14px;font-family:Georgia,serif;font-size:25px}
+.eobj{position:absolute;z-index:4;border:1px solid #4a5551;border-radius:7px;background:#252d2d;color:white;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.eobj:hover{filter:brightness(1.1)}
+.e-window{left:7%;top:18%;width:31%;height:31%;background:linear-gradient(#07101b,#172535);border:9px solid #343b38}
+.e-paint{right:8%;top:16%;width:24%;height:32%;background:linear-gradient(145deg,#432e42,#203237);border:8px solid #4a3f35}
+.e-desk{left:34%;bottom:10%;width:39%;height:22%;background:#4a382d}
+.e-drawer{left:50%;bottom:16%;width:105px;height:66px;background:#3a2b24}
+.e-mirror{left:8%;bottom:9%;width:18%;height:30%;background:linear-gradient(135deg,#a9b5b4,#415153);border:9px solid #4a4034}
+.e-door{right:8%;bottom:8%;width:17%;height:39%;background:#251e1b;border:6px solid #40352f}
+
+/* TERMINAL */
+.term{background:#030708;border:1px solid #293639;border-radius:8px;padding:12px;color:#9bd18a;font:13px/1.5 Consolas,monospace}
+.termout{white-space:pre-wrap;min-height:370px;max-height:460px;overflow:auto}
+.termline{display:flex;gap:7px}.termline input{flex:1;border:0;outline:0;background:transparent;color:#d9f3d2;font:inherit}
+
+/* DETECTIVE */
+.detective-grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
+.evidence-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.evidence{min-height:130px;border:1px solid #35434a;border-radius:12px;padding:12px;background:#11191e;text-align:left;color:#e5ecef}
+.evidence.seen{border-color:#60786a;background:#142019}
+.suspects{display:grid;gap:8px}
+.suspect{border:1px solid #354047;background:#0d1418;border-radius:10px;padding:10px;text-align:left;color:#e4eaed}
+.suspect b{display:block;margin-bottom:4px}
+
+/* MEMORY */
+.memory-grid{display:grid;grid-template-columns:repeat(4,92px);gap:9px;justify-content:center;margin:20px auto}
+.mem-card{height:92px;border:1px solid #36444b;border-radius:12px;background:#131c21;font-size:34px;color:white}
+.mem-card.open,.mem-card.done{background:#1d3022;border-color:#5d7c62}
+
+/* MINES */
+.mine-grid{display:grid;grid-template-columns:repeat(8,42px);gap:4px;justify-content:center;margin:18px auto}
+.mine{width:42px;height:42px;border:1px solid #35434a;border-radius:6px;background:#152027;color:#e9eff1;font-weight:900}
+.mine.open{background:#0c1215;border-color:#28343a}
+.mine.boom{background:#4a1f20}
+.mine.flag{color:#e0b35e}
+
+/* 2048 */
+.g2048{display:grid;grid-template-columns:repeat(4,82px);gap:8px;background:#2b302d;border-radius:13px;padding:10px;width:max-content;margin:18px auto}
+.t2048{width:82px;height:82px;border-radius:8px;background:#171d1a;display:grid;place-items:center;font-weight:900;font-size:24px;color:#e8eee9}
+.t2048[data-v="2"]{background:#d8d5c5;color:#30322e}.t2048[data-v="4"]{background:#c7d1b2;color:#283025}
+.t2048[data-v="8"]{background:#d6aa67}.t2048[data-v="16"]{background:#cf8b55}.t2048[data-v="32"]{background:#c86e55}
+.t2048[data-v="64"]{background:#b94c45}.t2048[data-v="128"]{background:#9f8d46}.t2048[data-v="256"]{background:#8d7f3d}
+.t2048[data-v="512"]{background:#716b38}.t2048[data-v="1024"]{background:#575d34}.t2048[data-v="2048"]{background:#3c663f}
+
+/* WORD */
+.word-box{text-align:center;padding:24px}
+.scramble{font-size:42px;letter-spacing:.18em;font-weight:900;margin:22px 0;color:#b9e1ad}
+.word-input{width:min(380px,100%);padding:12px 14px;background:#080d10;border:1px solid #3b4a51;border-radius:10px;color:white;text-align:center;font-size:18px}
+
+/* LIGHTS */
+.lo-grid{display:grid;grid-template-columns:repeat(5,66px);gap:7px;justify-content:center;margin:20px auto}
+.lo{width:66px;height:66px;border-radius:9px;border:1px solid #344248;background:#12191d}
+.lo.on{background:#739c67;box-shadow:0 0 19px rgba(155,209,138,.24)}
+
+.modal{display:none;position:fixed;inset:0;z-index:500;background:rgba(3,6,8,.82);align-items:center;justify-content:center;padding:18px}
+.modal.show{display:flex}
+.modalbox{width:min(620px,96vw);max-height:88vh;overflow:auto;background:#12191d;border:1px solid #3a474d;border-radius:15px;padding:19px;box-shadow:0 35px 100px rgba(0,0,0,.65)}
+.modalbox h3{margin:0 0 10px;font-family:Georgia,serif;font-size:26px;font-weight:500}
+.close{float:right;border:0;background:transparent;color:#8b999f;font-size:22px}
+.note{border-left:3px solid #749a6e;background:#0c1410;padding:10px 12px;color:#cad7c7;line-height:1.55}
+
+@media(max-width:1050px){.games-grid{grid-template-columns:repeat(3,1fr)}.game-card.featured{grid-column:span 2}}
+@media(max-width:850px){.mono-layout,.detective-grid{grid-template-columns:1fr}.mono-side{order:-1}}
+@media(max-width:650px){
+  #hub{padding:14px}.hero{padding:24px 20px}.games-grid{grid-template-columns:1fr 1fr}.game-card.featured{grid-column:1/-1}
+  .game-page{padding:12px}.mono-board{font-size:8px}.mono-cell{font-size:7px}.mono-cell.corner{font-size:9px}
+  .card{width:58px;height:86px;font-size:24px}.uno-table{padding:10px}.uno-middle{min-height:200px}
+  .memory-grid{grid-template-columns:repeat(4,70px)}.mem-card{height:70px}.mine-grid{grid-template-columns:repeat(8,34px)}.mine{width:34px;height:34px}
+  .g2048{grid-template-columns:repeat(4,65px)}.t2048{width:65px;height:65px}.lo-grid{grid-template-columns:repeat(5,52px)}.lo{width:52px;height:52px}
+}
+</style>
+</head>
+<body>
+
+<section id="hub">
+  <div class="hero">
+    <div class="hero-kicker">10 խաղ · մեկ էջում</div>
+    <h1>Իմ խաղադարանը</h1>
+    <p>Մի տեղում հավաքված են տարբեր տիպի խաղեր՝ դասական տախտակային, քարտային, escape, CTF, detective, logic ու արագ մտածելու խաղեր։ Բոլորը աշխատում են հենց այս էջի ներսում՝ առանց առանձին կայքեր բացելու։</p>
+    <div class="hero-meta">
+      <span class="badge">🎲 տախտակային</span><span class="badge">🃏 քարտային</span>
+      <span class="badge">🔐 escape</span><span class="badge">💻 CTF</span>
+      <span class="badge">🧠 logic</span><span class="badge">📱 offline</span>
+    </div>
+  </div>
+
+  <div class="games-grid" id="gamesGrid">
+    <button class="game-card featured" data-id="monopoly" onclick="openGame('monopoly')">
+      <div class="icon">🎩</div><h3>Մոնոպոլիա — դասական ոճ</h3>
+      <p>Քառակուսի տախտակ, գույներ, սեփականություն, վարձ, բանտ, տներ և AI հակառակորդ։</p><div class="type">Տախտակային · ռազմավարություն</div>
+    </button>
+    <button class="game-card featured" data-id="uno" onclick="openGame('uno')">
+      <div class="icon">🃏</div><h3>UNO</h3>
+      <p>Չորս գույն, թվեր, +2 և բաց թողնելու քարտեր։ Դու ընդդեմ համակարգչի։</p><div class="type">Քարտային · արագ</div>
+    </button>
+    <button class="game-card" data-id="escape" onclick="openGame('escape')">
+      <div class="icon">🚪</div><h3>Փոքր փախուստի սենյակ</h3>
+      <p>Սիրուն մութ սենյակ, թաքնված թիվ, փական ու փոքր գաղտնի ավարտ։</p><div class="type">Escape · puzzle</div>
+    </button>
+    <button class="game-card" data-id="ctf" onclick="openGame('ctf')">
+      <div class="icon">💻</div><h3>CTF Terminal</h3>
+      <p>Ֆայլեր, թաքնված գրառումներ, հրամաններ և մեկ գաղտնի բանալի։</p><div class="type">CTF · terminal</div>
+    </button>
+    <button class="game-card" data-id="detective" onclick="openGame('detective')">
+      <div class="icon">🔎</div><h3>Դետեկտիվ գործ</h3>
+      <p>Ուսումնասիրիր ապացույցները, համեմատի՛ր ալիբիները և մեղադրիր ճիշտ մարդուն։</p><div class="type">Mystery · deduction</div>
+    </button>
+    <button class="game-card" data-id="memory" onclick="openGame('memory')">
+      <div class="icon">🧠</div><h3>Հիշողության քարտեր</h3>
+      <p>Բացի՛ր զույգերը հնարավորինս քիչ քայլերով։</p><div class="type">Memory · արագ</div>
+    </button>
+    <button class="game-card" data-id="mines" onclick="openGame('mines')">
+      <div class="icon">💣</div><h3>Ականներ</h3>
+      <p>8×8 դաշտ, 10 ական։ Թվերը ցույց են տալիս՝ քանի ական կա կողքերում։</p><div class="type">Logic · classic</div>
+    </button>
+    <button class="game-card" data-id="g2048" onclick="openGame('g2048')">
+      <div class="icon">🔢</div><h3>2048</h3>
+      <p>Միացրու նույն թվերը և փորձիր հասնել 2048-ի։</p><div class="type">Puzzle · թվեր</div>
+    </button>
+    <button class="game-card" data-id="word" onclick="openGame('word')">
+      <div class="icon">🔤</div><h3>Խառնված բառեր</h3>
+      <p>Հայերեն բառերի տառերը խառնված են։ Քանի՞սը կբացես անընդմեջ։</p><div class="type">Բառային · արագ</div>
+    </button>
+    <button class="game-card" data-id="lights" onclick="openGame('lights')">
+      <div class="icon">💡</div><h3>Լույսերն անջատիր</h3>
+      <p>Սեղմելիս փոխվում են նաև հարևան լույսերը։ Նպատակը՝ մարել բոլորը։</p><div class="type">Logic · pattern</div>
+    </button>
+  </div>
+  <footer>Խաղերը պահվում են մեկ HTML ֆայլում և աշխատում են offline։</footer>
+</section>
+
+<section id="gameShell" class="hidden">
+  <div class="gamebar">
+    <button class="ghost" onclick="backHub()">← Խաղադարան</button>
+    <div class="gtitle" id="gameTitle"></div>
+    <div class="gmeta" id="gameMeta"></div>
+    <button class="secondary" onclick="resetCurrent()">Նորից</button>
+  </div>
+
+  <section id="game-monopoly" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Մոնոպոլիա — դասական ոճ</h2><p>Գնիր սեփականություններ, հավաքիր գունային խմբեր, կառուցիր տներ և սնանկացրու հակառակորդին։</p></div></div>
+      <div class="mono-layout">
+        <div id="monoBoard" class="mono-board"></div>
+        <div class="mono-side panel">
+          <div class="statrow">
+            <div class="stat"><b id="mCash">1500</b><span>Քո գումարը</span></div>
+            <div class="stat"><b id="mAiCash">1500</b><span>Հակառակորդ</span></div>
+            <div class="stat"><b id="mTurn">Քո հերթը</b><span>Հերթ</span></div>
+          </div>
+          <div class="actions">
+            <button id="mRoll" class="primary" onclick="monoRoll()">🎲 Զառ գցել</button>
+            <button id="mBuy" class="secondary" onclick="monoBuy()" disabled>Գնել</button>
+            <button id="mBuild" class="secondary" onclick="monoBuild()" disabled>Տուն կառուցել</button>
+            <button id="mSkip" class="ghost" onclick="monoSkip()" disabled>Չգնել / ավարտել հերթը</button>
+          </div>
+          <div class="small" style="margin:8px 0">Եթե նույն գույնի բոլոր սեփականությունները քոնն են, կարող ես դրանց վրա մինչև 3 տուն կառուցել։</div>
+          <div id="monoLog" class="logbox"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-uno" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>UNO</h2><p>Դիր նույն գույնի կամ նույն նշանի քարտ։ +2-ը հակառակորդին ստիպում է երկու քարտ քաշել, ⛔-ը բաց է թողնում հերթը։</p></div></div>
+      <div class="uno-table">
+        <div class="uno-count">Համակարգչի քարտերը՝ <b id="unoBotCount">7</b></div>
+        <div id="unoBotHand" class="uno-top"></div>
+        <div class="uno-middle">
+          <button id="unoDeck" class="card back" onclick="unoDraw()"><span>UNO</span></button>
+          <div><div id="unoDiscard"></div><div id="unoStatus" class="uno-count"></div></div>
+        </div>
+        <div id="unoPlayerHand" class="uno-bottom"></div>
+        <div class="uno-count">Քո քարտերը՝ <b id="unoPlayerCount">7</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-escape" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Փոքր փախուստի սենյակ</h2><p>Սեղմիր սենյակի առարկաների վրա։ Ամեն ինչ պետք չէ առաջին պահին հասկանալ։</p></div></div>
+      <div class="escape-room">
+        <div class="eroom-title">Սենյակ 7</div>
+        <button class="eobj e-window" onclick="eWindow()">🌙</button>
+        <button class="eobj e-paint" onclick="ePaint()">✦</button>
+        <button class="eobj e-desk" onclick="eDesk()">📜</button>
+        <button class="eobj e-drawer" onclick="eDrawer()">▤</button>
+        <button class="eobj e-mirror" onclick="eMirror()"></button>
+        <button class="eobj e-door" onclick="eDoor()">🚪</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-ctf" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>CTF Terminal</h2><p>Նպատակը՝ գտնել գաղտնի բանալին։ Սկսիր «օգնություն» հրամանից։</p></div></div>
+      <div class="term">
+        <div id="ctfOut" class="termout"></div>
+        <div class="termline"><span>&gt;</span><input id="ctfIn" autocomplete="off" onkeydown="if(event.key==='Enter')ctfCmd()"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-detective" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Դետեկտիվ գործ — «Կորած սկավառակը»</h2><p>Գրասենյակից անհետացել է գաղտնի տվյալներով սկավառակ։ Չորս մարդ ու չորս ապացույց։</p></div></div>
+      <div class="detective-grid">
+        <div>
+          <h3>Ապացույցներ</h3>
+          <div id="evidenceGrid" class="evidence-grid"></div>
+        </div>
+        <div class="panel">
+          <h3>Կասկածյալներ</h3>
+          <div id="suspects" class="suspects"></div>
+          <div id="detectiveMsg" class="note" style="margin-top:12px">Ուսումնասիրիր առնվազն 3 ապացույց, հետո մեղադրիր մեկին։</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-memory" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Հիշողության քարտեր</h2><p>Գտիր բոլոր 8 զույգերը։</p></div><div class="badge">Քայլեր՝ <b id="memMoves">0</b></div></div>
+      <div id="memoryGrid" class="memory-grid"></div>
+    </div>
+  </section>
+
+  <section id="game-mines" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Ականներ</h2><p>Սովորական սեղմում՝ բացել։ Երկար սեղմում/աջ քլիք՝ դրոշակ դնել։</p></div><div class="badge">Ականներ՝ 10</div></div>
+      <div id="mineGrid" class="mine-grid"></div>
+      <div id="mineMsg" class="note" style="max-width:520px;margin:0 auto;text-align:center">Առաջին սեղմումով խաղը սկսվում է։</div>
+    </div>
+  </section>
+
+  <section id="game-g2048" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>2048</h2><p>Համակարգչով՝ սլաքներ։ Հեռախոսով՝ օգտագործիր ներքևի կոճակները։</p></div><div class="badge">Միավոր՝ <b id="score2048">0</b></div></div>
+      <div id="grid2048" class="g2048"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,60px);gap:6px;justify-content:center">
+        <span></span><button class="secondary" onclick="move2048('up')">↑</button><span></span>
+        <button class="secondary" onclick="move2048('left')">←</button><button class="secondary" onclick="move2048('down')">↓</button><button class="secondary" onclick="move2048('right')">→</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-word" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Խառնված բառեր</h2><p>Տառերը խառնված են։ Գտիր ճիշտ հայերեն բառը։</p></div><div class="badge">Միավոր՝ <b id="wordScore">0</b></div></div>
+      <div class="panel word-box">
+        <div class="small">Խառնված բառը</div>
+        <div id="scramble" class="scramble"></div>
+        <input id="wordInput" class="word-input" placeholder="գրիր բառը" onkeydown="if(event.key==='Enter')checkWord()">
+        <div style="margin-top:10px"><button class="primary" onclick="checkWord()">Ստուգել</button> <button class="secondary" onclick="skipWord()">Բաց թողնել</button></div>
+        <div id="wordMsg" class="note" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="game-lights" class="game-page">
+    <div class="game-wrap">
+      <div class="game-head"><div><h2>Լույսերն անջատիր</h2><p>Սեղմելիս փոխվում է ընտրված լույսը և նրա վերևի, ներքևի, աջ ու ձախ հարևանները։</p></div><div class="badge">Քայլեր՝ <b id="loMoves">0</b></div></div>
+      <div id="loGrid" class="lo-grid"></div>
+      <div style="text-align:center"><button class="secondary" onclick="initLights()">Նոր պատկեր</button></div>
+    </div>
+  </section>
+</section>
+
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div id="modalBox" class="modalbox"></div></div>
+
+<script>
+/* ---------- GLOBAL ---------- */
+let currentGame=null;
+const names={
+  monopoly:['Մոնոպոլիա — դասական ոճ','Տախտակային'],
+  uno:['UNO','Քարտային'],
+  escape:['Փոքր փախուստի սենյակ','Escape'],
+  ctf:['CTF Terminal','CTF'],
+  detective:['Դետեկտիվ գործ','Deduction'],
+  memory:['Հիշողության քարտեր','Memory'],
+  mines:['Ականներ','Logic'],
+  g2048:['2048','Puzzle'],
+  word:['Խառնված բառեր','Բառային'],
+  lights:['Լույսերն անջատիր','Logic']
+};
+let completed=new Set(JSON.parse(localStorage.getItem('gamehub_done')||'[]'));
+
+function drawDone(){
+  document.querySelectorAll('.game-card').forEach(c=>{
+    c.querySelector('.done')?.remove();
+    if(completed.has(c.dataset.id)){
+      const d=document.createElement('div');d.className='done';d.textContent='✓ ավարտված';c.appendChild(d)
+    }
+  })
+}
+drawDone();
+
+function complete(id){
+  completed.add(id);localStorage.setItem('gamehub_done',JSON.stringify([...completed]));drawDone()
+}
+function openGame(id){
+  currentGame=id;document.getElementById('hub').classList.add('hidden');document.getElementById('gameShell').classList.remove('hidden');
+  document.querySelectorAll('.game-page').forEach(x=>x.classList.remove('active'));
+  document.getElementById('game-'+id).classList.add('active');
+  document.getElementById('gameTitle').textContent=names[id][0];
+  document.getElementById('gameMeta').textContent=names[id][1];
+  if(id==='monopoly')initMono();
+  if(id==='uno')initUno();
+  if(id==='escape')initEscape();
+  if(id==='ctf')initCTF();
+  if(id==='detective')initDetective();
+  if(id==='memory')initMemory();
+  if(id==='mines')initMines();
+  if(id==='g2048')init2048();
+  if(id==='word')initWord();
+  if(id==='lights')initLights();
+  window.scrollTo(0,0)
+}
+function backHub(){
+  document.getElementById('gameShell').classList.add('hidden');document.getElementById('hub').classList.remove('hidden');currentGame=null;drawDone();window.scrollTo(0,0)
+}
+function resetCurrent(){if(currentGame)openGame(currentGame)}
+function modal(html){document.getElementById('modalBox').innerHTML='<button class="close" onclick="closeModal()">×</button>'+html;document.getElementById('modal').classList.add('show')}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+
+/* ---------- MONOPOLY ---------- */
+const monoSpaces=[
+ {n:'ՍԿԻԶԲ',type:'start'},
+ {n:'Իջևան',type:'p',price:60,rent:12,c:'#7b5037',g:'b'},
+ {n:'ՇԱՆՍ',type:'chance'},
+ {n:'Դիլիջան',type:'p',price:70,rent:14,c:'#7b5037',g:'b'},
+ {n:'ՀԱՐԿ',type:'tax',amt:80},
+ {n:'ԿԱՅԱՐԱՆ',type:'p',price:120,rent:25,c:'#555',g:'rail'},
+ {n:'Գյումրի',type:'p',price:140,rent:28,c:'#d84a48',g:'r'},
+ {n:'ԲԱՆՏ',type:'jail'},
+ {n:'Վանաձոր',type:'p',price:150,rent:30,c:'#d84a48',g:'r'},
+ {n:'ՇԱՆՍ',type:'chance'},
+ {n:'Սևան',type:'p',price:180,rent:36,c:'#e6a13a',g:'o'},
+ {n:'ՀԱՐԿ',type:'tax',amt:100},
+ {n:'Ծաղկաձոր',type:'p',price:190,rent:38,c:'#e6a13a',g:'o'},
+ {n:'ՕԴԱՆԱՎԱԿԱՅԱՆ',type:'p',price:150,rent:30,c:'#555',g:'rail'},
+ {n:'Երևան',type:'p',price:220,rent:44,c:'#4f9a58',g:'g'},
+ {n:'ԳՆԱ ԲԱՆՏ',type:'goto'},
+ {n:'Աշտարակ',type:'p',price:230,rent:46,c:'#4f9a58',g:'g'},
+ {n:'ՇԱՆՍ',type:'chance'},
+ {n:'Գառնի',type:'p',price:280,rent:56,c:'#365ba8',g:'u'},
+ {n:'Գեղարդ',type:'p',price:300,rent:60,c:'#365ba8',g:'u'}
+];
+const monoPos=[
+ [1,1],[1,2],[1,3],[1,4],[1,5],[1,6],
+ [2,6],[3,6],[4,6],[5,6],
+ [6,6],[6,5],[6,4],[6,3],[6,2],[6,1],
+ [5,1],[4,1],[3,1],[2,1]
+];
+let M;
+function initMono(){
+  M={p:0,a:0,pc:1500,ac:1500,owner:Array(20).fill(null),houses:Array(20).fill(0),turn:'p',rolled:false,pending:null,dice:[1,1],log:['Խաղը սկսվեց։ Դու առաջինն ես։'],over:false};
+  renderMono()
+}
+function monoLog(t){M.log.push(t);if(M.log.length>30)M.log.shift();renderMonoLog()}
+function renderMonoLog(){document.getElementById('monoLog').innerHTML=M.log.map(x=>'<p>'+x+'</p>').join('');document.getElementById('monoLog').scrollTop=9999}
+function renderMono(){
+  const b=document.getElementById('monoBoard');b.innerHTML='';
+  monoSpaces.forEach((s,i)=>{
+    const c=document.createElement('div');c.className='mono-cell'+((s.type==='start'||s.type==='jail'||s.type==='goto')?' corner':'');
+    c.style.gridRow=monoPos[i][0];c.style.gridColumn=monoPos[i][1];
+    let h='';
+    if(s.type==='p')h=`<div class="strip" style="background:${s.c}"></div><b>${s.n}</b><div class="price">$${s.price}</div><div class="houses">${M.houses[i]?'🏠'.repeat(M.houses[i]):''}</div>`;
+    else h=`<div style="text-align:center">${s.n}</div>`;
+    if(M.owner[i])h+=`<div style="position:absolute;right:3px;bottom:3px"><span class="owner-dot ${M.owner[i]==='p'?'owner-player':'owner-ai'}"></span></div>`;
+    if(M.p===i)h+='<div class="token-p">🔵</div>';if(M.a===i)h+='<div class="token-a">🔴</div>';
+    c.innerHTML=h;b.appendChild(c)
+  });
+  const center=document.createElement('div');center.className='mono-center';center.innerHTML=`<div><h3>ԳՈՒՅՔ</h3><div class="dice">${['⚀','⚁','⚂','⚃','⚄','⚅'][M.dice[0]-1]} ${['⚀','⚁','⚂','⚃','⚄','⚅'][M.dice[1]-1]}</div><div style="font-size:11px">Դու՝ 🔵 &nbsp; Համակարգիչ՝ 🔴</div></div>`;b.appendChild(center);
+  document.getElementById('mCash').textContent='$'+M.pc;document.getElementById('mAiCash').textContent='$'+M.ac;
+  document.getElementById('mTurn').textContent=M.turn==='p'?'Քո հերթը':'Հակառակորդ';
+  document.getElementById('mRoll').disabled=M.turn!=='p'||M.rolled||M.over;
+  const canBuy=M.pending==='buy'&&M.turn==='p';
+  document.getElementById('mBuy').disabled=!canBuy;
+  document.getElementById('mSkip').disabled=!canBuy;
+  const s=monoSpaces[M.p];
+  document.getElementById('mBuild').disabled=!(M.turn==='p'&&s.type==='p'&&M.owner[M.p]==='p'&&monoFullGroup(M.p,'p')&&M.houses[M.p]<3&&M.pc>=50&&!M.rolled);
+  renderMonoLog()
+}
+function monoFullGroup(i,who){
+  const g=monoSpaces[i].g;if(!g)return false;
+  const ids=monoSpaces.map((s,j)=>s.g===g?j:-1).filter(j=>j>=0);
+  return ids.every(j=>M.owner[j]===who)
+}
+function monoRoll(){
+  if(M.turn!=='p'||M.rolled||M.over)return;
+  M.rolled=true;M.dice=[1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)];
+  const old=M.p;M.p=(M.p+M.dice[0]+M.dice[1])%20;if(M.p<old){M.pc+=200;monoLog('ՍԿԻԶԲ անցար՝ +$200։')}
+  monoLog(`Դու գցեցիր ${M.dice[0]}+${M.dice[1]} և հասար «${monoSpaces[M.p].n}»։`);
+  monoResolve('p')
+}
+function monoResolve(who){
+  const pos=who==='p'?M.p:M.a,s=monoSpaces[pos];
+  if(s.type==='p'){
+    if(!M.owner[pos]){
+      if(who==='p'){M.pending='buy';renderMono();return}
+      if(M.ac>s.price+180){M.ac-=s.price;M.owner[pos]='a';monoLog(`Հակառակորդը գնեց «${s.n}»։`)}
+    }else if(M.owner[pos]!==who){
+      const rent=s.rent*(1+M.houses[pos]*2);
+      if(who==='p'){M.pc-=rent;M.ac+=rent;monoLog(`Վճարեցիր $${rent} վարձ։`)}
+      else{M.ac-=rent;M.pc+=rent;monoLog(`Հակառակորդը քեզ վճարեց $${rent} վարձ։`)}
+    }
+  }else if(s.type==='tax'){
+    if(who==='p'){M.pc-=s.amt;monoLog(`Վճարեցիր $${s.amt} հարկ։`)}else{M.ac-=s.amt;monoLog(`Հակառակորդը վճարեց $${s.amt} հարկ։`)}
+  }else if(s.type==='chance'){
+    const vals=[100,60,-50,-90],v=vals[Math.floor(Math.random()*vals.length)];
+    if(who==='p')M.pc+=v;else M.ac+=v;monoLog(`${who==='p'?'Դու':'Հակառակորդը'} ՇԱՆՍ-ից ստացար ${v>=0?'+':''}$${v}։`)
+  }else if(s.type==='goto'){
+    if(who==='p')M.p=7;else M.a=7;monoLog(`${who==='p'?'Դու':'Հակառակորդը'} գնացիր ԲԱՆՏ։`)
+  }
+  monoCheck();
+  if(who==='p'){M.pending=null;setTimeout(monoEndPlayer,450)}else setTimeout(()=>{M.turn='p';M.rolled=false;M.pending=null;renderMono()},550);
+  renderMono()
+}
+function monoBuy(){
+  const s=monoSpaces[M.p];if(M.pending!=='buy'||M.pc<s.price)return;
+  M.pc-=s.price;M.owner[M.p]='p';monoLog(`Գնեցիր «${s.n}»՝ $${s.price}։`);M.pending=null;monoEndPlayer()
+}
+function monoSkip(){if(M.pending==='buy'){monoLog(`Չգնեցիր «${monoSpaces[M.p].n}»։`);M.pending=null;monoEndPlayer()}}
+function monoBuild(){
+  const i=M.p;if(!monoFullGroup(i,'p')||M.houses[i]>=3||M.pc<50)return;
+  M.pc-=50;M.houses[i]++;monoLog(`«${monoSpaces[i].n}»-ում տուն կառուցեցիր։`);renderMono()
+}
+function monoEndPlayer(){monoCheck();if(M.over)return;M.turn='a';M.rolled=false;renderMono();setTimeout(monoAi,700)}
+function monoAi(){
+  if(M.over)return;M.dice=[1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)];
+  const old=M.a;M.a=(M.a+M.dice[0]+M.dice[1])%20;if(M.a<old){M.ac+=200;monoLog('Հակառակորդը ՍԿԻԶԲ անցավ՝ +$200։')}
+  monoLog(`Հակառակորդը գցեց ${M.dice[0]}+${M.dice[1]} և հասավ «${monoSpaces[M.a].n}»։`);
+  monoResolve('a')
+}
+function monoCheck(){
+  if(M.pc<0){M.over=true;modal('<h3>Պարտվեցիր</h3><p>Գումարդ վերջացավ։ Փորձիր ավելի շուտ ամբողջական գունային խումբ հավաքել։</p>')}
+  if(M.ac<0){M.over=true;complete('monopoly');modal('<h3>Հաղթեցիր 🎉</h3><p>Հակառակորդը սնանկացավ։</p>')}
+}
+
+/* ---------- UNO ---------- */
+const UCOL=['red','blue','green','yellow'];
+let U;
+function unoDeckCreate(){
+  let d=[];UCOL.forEach(c=>{for(let n=0;n<=9;n++){d.push({c,v:String(n)});if(n)d.push({c,v:String(n)})}d.push({c,v:'+2'},{c,v:'⛔'})});
+  return d.sort(()=>Math.random()-.5)
+}
+function initUno(){
+  const d=unoDeckCreate();U={deck:d,ph:[],bh:[],discard:null,turn:'p',over:false};
+  for(let i=0;i<7;i++){U.ph.push(U.deck.pop());U.bh.push(U.deck.pop())}
+  let first=U.deck.pop();while(first.v==='+2'||first.v==='⛔'){U.deck.unshift(first);first=U.deck.pop()}U.discard=first;renderUno()
+}
+function unoCardHtml(c,player,index){
+  const play=player&&unoPlayable(c)&&U.turn==='p'&&!U.over;
+  return `<button class="card ${c.c} ${play?'playable':''}" ${play?`onclick="unoPlay(${index})"`:'disabled'}><span>${c.v}</span></button>`
+}
+function renderUno(){
+  document.getElementById('unoBotCount').textContent=U.bh.length;document.getElementById('unoPlayerCount').textContent=U.ph.length;
+  document.getElementById('unoBotHand').innerHTML=U.bh.map(()=>'<div class="card back"><span>UNO</span></div>').join('');
+  document.getElementById('unoPlayerHand').innerHTML=U.ph.map((c,i)=>unoCardHtml(c,true,i)).join('');
+  document.getElementById('unoDiscard').innerHTML=unoCardHtml(U.discard,false,0);
+  document.getElementById('unoStatus').textContent=U.over?'Խաղն ավարտված է':(U.turn==='p'?'Քո հերթը':'Համակարգիչը խաղում է…')
+}
+function unoPlayable(c){return c.c===U.discard.c||c.v===U.discard.v}
+function unoPlay(i){
+  if(U.turn!=='p')return;const c=U.ph[i];if(!unoPlayable(c))return;
+  U.ph.splice(i,1);U.discard=c;
+  if(U.ph.length===0){U.over=true;complete('uno');renderUno();modal('<h3>UNO! Հաղթեցիր 🎉</h3><p>Բոլոր քարտերից առաջինը դու ազատվեցիր։</p>');return}
+  if(c.v==='+2'){U.bh.push(unoTake(),unoTake());U.turn='p'}
+  else if(c.v==='⛔'){U.turn='p'}
+  else U.turn='b';
+  renderUno();if(U.turn==='b')setTimeout(unoBot,700)
+}
+function unoTake(){if(!U.deck.length)unoRecycle();return U.deck.pop()}
+function unoRecycle(){const keep=U.discard;U.deck=[...U.ph.slice(0,0)];U.deck=unoDeckCreate();U.discard=keep}
+function unoDraw(){
+  if(U.turn!=='p'||U.over)return;U.ph.push(unoTake());U.turn='b';renderUno();setTimeout(unoBot,650)
+}
+function unoBot(){
+  if(U.over)return;let idx=U.bh.findIndex(unoPlayable);
+  if(idx<0){U.bh.push(unoTake());idx=U.bh.findIndex(unoPlayable)}
+  if(idx>=0){
+    const c=U.bh.splice(idx,1)[0];U.discard=c;
+    if(U.bh.length===0){U.over=true;renderUno();modal('<h3>Պարտվեցիր</h3><p>Համակարգիչը առաջինը ազատվեց քարտերից։</p>');return}
+    if(c.v==='+2'){U.ph.push(unoTake(),unoTake());U.turn='b';renderUno();setTimeout(unoBot,650);return}
+    if(c.v==='⛔'){U.turn='b';renderUno();setTimeout(unoBot,650);return}
+  }
+  U.turn='p';renderUno()
+}
+
+/* ---------- ESCAPE ---------- */
+let E;
+function initEscape(){E={paper:false,code:false,key:false,secret:false,done:false}}
+function eDesk(){
+  if(!E.paper){E.paper=true;modal('<h3>Գրասեղան</h3><p>Գտար ծալված թուղթ։</p><div class="note">«Հայելին հակառակն է ցույց տալիս։ Նկարը՝ հերթը»։</div>')}
+  else modal('<h3>Գրասեղան</h3><p>Այլ բան չկա։</p>')
+}
+function eMirror(){modal('<h3>Հայելի</h3><p>Ապակու վրա հակառակ գրված է՝</p><div style="font-size:44px;text-align:center;transform:scaleX(-1);padding:15px">7314</div>')}
+function ePaint(){E.code=true;modal('<h3>Նկար</h3><p>Չորս աստղերի կողքին փոքր սլաքներ կան՝ <b>↖ → ↘ ←</b>։ Ստորև՝ «հայելու թվերը շրջիր, ոչ հերթը»։</p>')}
+function eDrawer(){
+  if(E.key){modal('<h3>Դարակ</h3><p>Բաց է։</p>');return}
+  modal(`<h3>Փակ դարակ</h3><p>Չորսանիշ կոդ։</p><div class="code"><input id="ecode" maxlength="4" placeholder="0000"><button class="primary" onclick="tryEDrawer()">Բացել</button></div><p id="emsg" class="small"></p>`)
+}
+function tryEDrawer(){
+  if(document.getElementById('ecode').value==='4137'){E.key=true;document.getElementById('emsg').textContent='Բացվեց։';setTimeout(()=>modal('<h3>Դարակի ներսում</h3><p>🗝 Սև բանալի և փոքր թուղթ՝ «Պատուհանը երկրորդ ելքն է»։</p>'),250)}
+  else document.getElementById('emsg').textContent='Չի բացվում։'
+}
+function eWindow(){
+  if(E.key&&!E.secret){E.secret=true;modal('<h3>Պատուհան</h3><p>Բանալու համար փոքր անցք գտար շրջանակի տակ։ Բանալին պտտեցիր, և պատուհանի կողքից գաղտնի խորշ բացվեց։</p><div class="note">Գաղտնի նշում՝ «Դուռը միայն սովորական ավարտն է»։</div>')}
+  else modal('<h3>Պատուհան</h3><p>Գիշեր է։ Շրջանակի ներքևում շատ փոքր մետաղական անցք կա։</p>')
+}
+function eDoor(){
+  if(!E.key){modal('<h3>Դուռ</h3><p>Փակ է։ Բանալի է պետք։</p>');return}
+  E.done=true;complete('escape');
+  modal(`<h3>${E.secret?'Գաղտնի ավարտ 🎉':'Ավարտ 🎉'}</h3><p>${E.secret?'Դուռը բացելուց առաջ գտար սենյակի գաղտնի խորշը։':'Դուռը բացվեց։ Բայց թվում է՝ պատուհանի մոտ ինչ-որ բան բաց թողեցիր։'}</p>`)
+}
+
+/* ---------- CTF ---------- */
+let C;
+function initCTF(){
+  C={flag:false};
+  document.getElementById('ctfOut').textContent='ՓՈՔՐ CTF ՄԻՋԱՎԱՅՐ\nՆպատակ՝ գտնել SECRET_KEY-ը։\nԳրիր «օգնություն»։\n';
+  document.getElementById('ctfIn').value='';setTimeout(()=>document.getElementById('ctfIn').focus(),100)
+}
+function ctfCmd(){
+  const i=document.getElementById('ctfIn'),o=document.getElementById('ctfOut'),raw=i.value.trim(),c=raw.toLowerCase();i.value='';o.textContent+=`\n> ${raw}\n`;
+  if(c==='օգնություն')o.textContent+='հրամաններ՝ ցուցակ, թաքնված, կարդալ <անուն>, ովեմ, մաքրել\n';
+  else if(c==='ցուցակ')o.textContent+='նշում.txt   նկար.png   պահուստ/\n';
+  else if(c==='թաքնված')o.textContent+='.   ..   նշում.txt   նկար.png   պահուստ/   .ուղի\n';
+  else if(c==='կարդալ նշում.txt')o.textContent+='«Այն, ինչ թաքնված է, միշտ անուն ունի»։\n';
+  else if(c==='կարդալ .ուղի')o.textContent+='Հաջորդը՝ կարդալ պահուստ/հին.txt\n';
+  else if(c==='կարդալ պահուստ/հին.txt'){o.textContent+='SECRET_KEY=GREEN_TERMINAL_47\n';if(!C.flag){C.flag=true;complete('ctf');setTimeout(()=>modal('<h3>Flag գտնվեց 🔥</h3><p><b>SECRET_KEY=GREEN_TERMINAL_47</b></p>'),250)}}
+  else if(c==='ովեմ')o.textContent+='այցելու_12\n';
+  else if(c==='մաքրել')o.textContent='';
+  else o.textContent+='անհայտ հրաման\n';
+  o.scrollTop=o.scrollHeight
+}
+
+/* ---------- DETECTIVE ---------- */
+const EV=[
+ {t:'Մուտքի քարտ',d:'Սկավառակի պահոցը բացվել է 18:42-ին՝ մեկանգամյա աշխատակցային քարտով։'},
+ {t:'Տեսախցիկ',d:'18:40–18:45 միջանցքի տեսախցիկը անջատված էր։ Այն կարելի է անջատել միայն անվտանգության սենյակից։'},
+ {t:'Սուրճի կտրոն',d:'Անիի կտրոնը տպվել է շենքից 12 րոպե հեռու սրճարանում՝ 18:41-ին։'},
+ {t:'Համակարգի մատյան',d:'Անվտանգության սենյակի համակարգ մուտք է եղել «Գոռ» օգտատերը՝ 18:39-ին։'}
+];
+const SUS=[
+ {n:'Անի',d:'Ասում է՝ 18:30-ից հետո սրճարանում էր։',g:false},
+ {n:'Գոռ',d:'Անվտանգության պատասխանատու։ Ասում է՝ 18:20-ին տուն է գնացել։',g:true},
+ {n:'Լևոն',d:'Պահոցի քարտ ունի, բայց 18:35–19:00 հանդիպման մեջ էր։',g:false},
+ {n:'Մարի',d:'Տեսախցիկների հասանելիություն չունի։ Ասում է՝ իր սեղանի մոտ էր։',g:false}
+];
+let D;
+function initDetective(){D={seen:new Set(),done:false};renderDetective()}
+function renderDetective(){
+  document.getElementById('evidenceGrid').innerHTML=EV.map((e,i)=>`<button class="evidence ${D.seen.has(i)?'seen':''}" onclick="seeEv(${i})"><b>${e.t}</b><p class="small">${D.seen.has(i)?e.d:'Սեղմիր ուսումնասիրելու համար'}</p></button>`).join('');
+  document.getElementById('suspects').innerHTML=SUS.map((s,i)=>`<button class="suspect" onclick="accuse(${i})"><b>${s.n}</b><span class="small">${s.d}</span></button>`).join('')
+}
+function seeEv(i){D.seen.add(i);renderDetective()}
+function accuse(i){
+  if(D.seen.size<3){document.getElementById('detectiveMsg').textContent='Դեռ քիչ ապացույց ես ուսումնասիրել։';return}
+  if(SUS[i].g){D.done=true;complete('detective');modal('<h3>Գործը բացահայտված է 🔎</h3><p><b>Գոռը</b> ստել էր, որ տուն է գնացել։ Համակարգի մատյանը ցույց է տալիս նրա մուտքը անվտանգության սենյակ հենց տեսախցիկի անջատումից մեկ րոպե առաջ։</p>')}
+  else document.getElementById('detectiveMsg').textContent='Էս տարբերակը ապացույցների հետ չի նստում։ Նորից համեմատի՛ր ժամերը։'
+}
+
+/* ---------- MEMORY ---------- */
+let MEM;
+function initMemory(){
+  const a=['🌙','🔑','🧩','🚪','🌿','🎲','🕯','📼'];let arr=[...a,...a].sort(()=>Math.random()-.5);
+  MEM={arr,open:[],done:new Set(),moves:0,lock:false};renderMemory()
+}
+function renderMemory(){
+  document.getElementById('memMoves').textContent=MEM.moves;
+  document.getElementById('memoryGrid').innerHTML=MEM.arr.map((x,i)=>`<button class="mem-card ${MEM.open.includes(i)?'open':''} ${MEM.done.has(i)?'done':''}" onclick="memOpen(${i})">${MEM.open.includes(i)||MEM.done.has(i)?x:'?'}</button>`).join('')
+}
+function memOpen(i){
+  if(MEM.lock||MEM.done.has(i)||MEM.open.includes(i))return;MEM.open.push(i);renderMemory();
+  if(MEM.open.length===2){MEM.moves++;const [a,b]=MEM.open;if(MEM.arr[a]===MEM.arr[b]){MEM.done.add(a);MEM.done.add(b);MEM.open=[];renderMemory();if(MEM.done.size===16){complete('memory');modal(`<h3>Հաղթեցիր 🧠</h3><p>Բոլոր զույգերը գտար <b>${MEM.moves}</b> քայլում։</p>`)}}else{MEM.lock=true;setTimeout(()=>{MEM.open=[];MEM.lock=false;renderMemory()},650)}}
+}
+
+/* ---------- MINES ---------- */
+let MN;
+function initMines(){
+  const cells=64,mines=new Set();while(mines.size<10)mines.add(Math.floor(Math.random()*cells));
+  MN={mines,open:new Set(),flag:new Set(),over:false};renderMines()
+}
+function mineCount(i){
+  const r=Math.floor(i/8),c=i%8;let n=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;const rr=r+dr,cc=c+dc;if(rr>=0&&rr<8&&cc>=0&&cc<8&&MN.mines.has(rr*8+cc))n++}return n
+}
+function renderMines(){
+  document.getElementById('mineGrid').innerHTML=Array.from({length:64},(_,i)=>{
+    let txt='',cl='mine';if(MN.open.has(i)){cl+=' open';if(MN.mines.has(i)){txt='💣';cl+=' boom'}else{const n=mineCount(i);txt=n||''}}else if(MN.flag.has(i)){txt='⚑';cl+=' flag'}
+    return `<button class="${cl}" onclick="openMine(${i})" oncontextmenu="event.preventDefault();flagMine(${i})" ontouchstart="mineTouchStart(event,${i})" ontouchend="mineTouchEnd(event,${i})">${txt}</button>`
+  }).join('')
+}
+let touchTimer=null;
+function mineTouchStart(e,i){touchTimer=setTimeout(()=>{flagMine(i);touchTimer=null},550)}
+function mineTouchEnd(){if(touchTimer){clearTimeout(touchTimer);touchTimer=null}}
+function flagMine(i){if(MN.over||MN.open.has(i))return;if(MN.flag.has(i))MN.flag.delete(i);else MN.flag.add(i);renderMines()}
+function openMine(i){
+  if(MN.over||MN.flag.has(i))return;
+  if(MN.mines.has(i)){MN.open.add(i);MN.over=true;MN.mines.forEach(x=>MN.open.add(x));renderMines();document.getElementById('mineMsg').textContent='Պայթեց 💥։ Նորից փորձիր։';return}
+  floodMine(i);renderMines();
+  if(64-MN.open.size===10){MN.over=true;complete('mines');document.getElementById('mineMsg').textContent='Հաղթեցիր 🎉 Բոլոր անվտանգ վանդակները բացված են։'}
+}
+function floodMine(i){
+  if(MN.open.has(i)||MN.mines.has(i))return;MN.open.add(i);if(mineCount(i)!==0)return;
+  const r=Math.floor(i/8),c=i%8;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<8&&cc>=0&&cc<8)floodMine(rr*8+cc)}
+}
+
+/* ---------- 2048 ---------- */
+let G;
+function init2048(){G={a:Array(16).fill(0),score:0,over:false};add2048();add2048();render2048()}
+function add2048(){const e=G.a.map((v,i)=>v?null:i).filter(x=>x!==null);if(e.length)G.a[e[Math.floor(Math.random()*e.length)]]=Math.random()<.9?2:4}
+function render2048(){
+  document.getElementById('score2048').textContent=G.score;
+  document.getElementById('grid2048').innerHTML=G.a.map(v=>`<div class="t2048" data-v="${v}">${v||''}</div>`).join('')
+}
+function compress2048(row){
+  let a=row.filter(Boolean);for(let i=0;i<a.length-1;i++){if(a[i]===a[i+1]){a[i]*=2;G.score+=a[i];a.splice(i+1,1)}}while(a.length<4)a.push(0);return a
+}
+function move2048(dir){
+  if(G.over)return;let old=G.a.join(','),b=Array(16).fill(0);
+  for(let k=0;k<4;k++){
+    let row=[];
+    for(let j=0;j<4;j++){
+      let r,c;if(dir==='left'||dir==='right'){r=k;c=dir==='left'?j:3-j}else{c=k;r=dir==='up'?j:3-j}
+      row.push(G.a[r*4+c])
+    }
+    row=compress2048(row);
+    for(let j=0;j<4;j++){
+      let r,c;if(dir==='left'||dir==='right'){r=k;c=dir==='left'?j:3-j}else{c=k;r=dir==='up'?j:3-j}
+      b[r*4+c]=row[j]
+    }
+  }
+  G.a=b;if(G.a.join(',')!==old)add2048();render2048();
+  if(G.a.includes(2048)){complete('g2048');modal('<h3>2048 🎉</h3><p>Հասար 2048-ին։</p>')}
+}
+document.addEventListener('keydown',e=>{
+  if(currentGame!=='g2048')return;
+  const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];if(m){e.preventDefault();move2048(m)}
+});
+
+/* ---------- WORD ---------- */
+const WORDS=['աստղ','ժամացույց','բանալի','գաղտնիք','պատուհան','դիտարան','մեքենա','ծաղիկ','հայելին','քաղաք','գիրք','զառ','փախուստ','միջանցք','խորհուրդ'];
+let W;
+function shuffleWord(w){let a=[...w];do{a.sort(()=>Math.random()-.5)}while(a.join('')===w&&w.length>2);return a.join('')}
+function initWord(){W={score:0,word:'',scr:''};nextWord()}
+function nextWord(){W.word=WORDS[Math.floor(Math.random()*WORDS.length)];W.scr=shuffleWord(W.word);document.getElementById('scramble').textContent=W.scr;document.getElementById('wordInput').value='';document.getElementById('wordScore').textContent=W.score;document.getElementById('wordMsg').textContent='';setTimeout(()=>document.getElementById('wordInput').focus(),50)}
+function checkWord(){
+  const v=document.getElementById('wordInput').value.trim().toLowerCase();
+  if(v===W.word){W.score++;document.getElementById('wordMsg').textContent='Ճիշտ է 🔥';if(W.score>=7)complete('word');setTimeout(nextWord,500)}
+  else document.getElementById('wordMsg').textContent='Չէ 😈 նորից փորձիր։'
+}
+function skipWord(){document.getElementById('wordMsg').textContent='Բառը՝ '+W.word;setTimeout(nextWord,900)}
+
+/* ---------- LIGHTS OUT ---------- */
+let LO;
+function initLights(){
+  LO={a:Array(25).fill(0),moves:0};
+  for(let z=0;z<8;z++)toggleLO(Math.floor(Math.random()*25),false);
+  renderLO()
+}
+function toggleLO(i,count=true){
+  const r=Math.floor(i/5),c=i%5;[[r,c],[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([rr,cc])=>{if(rr>=0&&rr<5&&cc>=0&&cc<5){const k=rr*5+cc;LO.a[k]=LO.a[k]?0:1}});
+  if(count)LO.moves++
+}
+function renderLO(){
+  document.getElementById('loMoves').textContent=LO.moves;
+  document.getElementById('loGrid').innerHTML=LO.a.map((v,i)=>`<button class="lo ${v?'on':''}" onclick="pressLO(${i})"></button>`).join('')
+}
+function pressLO(i){toggleLO(i);renderLO();if(LO.a.every(x=>!x)){complete('lights');modal(`<h3>Բոլոր լույսերը մարեցին 💡</h3><p>Լուծեցիր <b>${LO.moves}</b> քայլով։</p>`)}}
+</script>
+</body>
+</html>
