@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=yes">
-<title>Monopoly V23 CORS Wake Fix</title>
+<title>Monopoly V24 PeerJS Stable</title>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
 <style>
 :root{
@@ -413,9 +413,9 @@ function peerOptions(){
   return {
     host:u.hostname,
     port:u.port?Number(u.port):(u.protocol==='https:'?443:80),
-    path:'/peerjs',
+    path:'/peerjs/game',
     secure:u.protocol==='https:',
-    pingInterval:3000,
+    pingInterval:5000,
     debug:2
   };
 }
